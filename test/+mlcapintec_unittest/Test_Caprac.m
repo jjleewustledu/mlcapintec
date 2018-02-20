@@ -14,8 +14,14 @@ classdef Test_Caprac < matlab.unittest.TestCase
  	
 
 	properties
+        doseAdminDatetimeFDG = datetime(2016,9,23,12,43,52,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+        ccirRadMeasurementsDir = fullfile(getenv('HOME'), 'Documents/private')
+        mand
  		registry
+        sessd
+        sessp = '/data/nil-bluearc/raichle/PPGdata/jjlee2/HYGLY28'
  		testObj
+        vnumber = 2
  	end
 
 	methods (Test)
@@ -24,13 +30,76 @@ classdef Test_Caprac < matlab.unittest.TestCase
  			this.assumeEqual(1,1);
  			this.verifyEqual(1,1);
  			this.assertEqual(1,1);
- 		end
+        end
+        function test_ctor(this)
+            this.verifyClass(this.testObj, 'mlcapintec.Caprac');
+            %this.verifyEqual(this.testObj.datetime0, this.doseAdminDatetimeFDG);
+            this.verifyEqual(this.testObj.doseAdminDatetime, this.doseAdminDatetimeFDG);
+            this.verifyEqual(this.testObj.dt, 1);
+            this.verifyEqual(this.testObj.times(10), 45);
+            this.verifyEqual(this.testObj.isotope, '18F');
+            this.verifyEqual(this.testObj.counts(10), 9.587431374733398e+03, 'RelTol', 1e-9);
+            this.verifyEqual(this.testObj.specificActivity(10), 3.095462012154035e+04, 'RelTol', 1e-9);
+            this.verifyEqual(this.testObj.invEfficiency, 1);
+            this.verifyEqual(this.testObj.W, 1);
+        end
+        function test_plot(this)
+            this.testObj.invEfficiency = 1;
+            plot(this.testObj, '.');
+            plotCounts(this.testObj, '.');
+            this.testObj.invEfficiency = 2;
+            plotSpecificActivity(this.testObj, '.');
+        end
+        function test_datetime(this)
+            dt_ = this.testObj.datetime;
+            this.verifyEqual(dt_(1),  datetime(2016,9,23,12,44,0, 'TimeZone', 'America/Chicago'));
+            this.verifyEqual(dt_(10), datetime(2016,9,23,12,44,45,'TimeZone', 'America/Chicago'));
+            this.verifyEqual(length(dt_), 32);
+        end
+        function test_timesDrawn(this)
+            this.verifyEqual(this.testObj.times(1), 0);
+            this.verifyEqual(this.testObj.times(10), 45);
+            this.verifyEqual(length(this.testObj.times), 32);
+        end
+        function test_counts(this)
+            this.verifyEqual(this.testObj.counts(1),  1.177191032670612,     'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.counts(10), 9.587431374733398e+03, 'RelTol', 1e-12);
+            this.verifyEqual(length(this.testObj.counts), 32);
+        end
+        function test_specificActivity(this)
+            this.verifyEqual(this.testObj.specificActivity(1),  2.986619901315571,     'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(10), 3.095462012154035e+04, 'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(32), 1.507840614268497e+03, 'RelTol', 1e-12);
+            this.verifyEqual(length(this.testObj.specificActivity), 32);
+        end
+        function test_correctedSpecificActivity(this)
+            this.testObj = this.testObj.correctedActivities(0);
+            this.verifyEqual(this.testObj.specificActivity(1),  2.986619901315571,     'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(10), 3.110156436415018e+04, 'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(32), 2.200544802823169e+03, 'RelTol', 1e-12);
+            this.verifyEqual(length(this.testObj.specificActivity), 32);
+        end
 	end
 
  	methods (TestClassSetup)
 		function setupCaprac(this)
- 			import mlcapintec.*;
- 			this.testObj_ = Caprac;
+ 			import mlcapintec.*;                    
+            setenv('CCIR_RAD_MEASUREMENTS_DIR', this.ccirRadMeasurementsDir);
+            this.sessd = mlraichle.SessionData( ...
+                'studyData', mlraichle.StudyData', ...
+                'sessionDate', datetime(2016,9,23), ...
+                'sessionPath', this.sessp, ...
+                'vnumber', this.vnumber, ...
+                'tracer', '18F', ...
+                'sessionDate', datetime(2016, 9, 23));
+            this.mand = mlsiemens.XlsxObjScanData( ...
+                'sessionData', this.sessd);
+ 			this.testObj_ = Caprac( ...
+                'fqfilename', this.sessd.CCIRRadMeasurements, ...
+                'sessionData', this.sessd, ...
+                'manualData', this.mand, ...
+                'isotope', '18F', ...
+                'doseAdminDatetime', this.doseAdminDatetimeFDG);
  		end
 	end
 
