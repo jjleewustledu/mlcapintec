@@ -38,8 +38,8 @@ classdef Test_Caprac < matlab.unittest.TestCase
             this.verifyEqual(this.testObj.dt, 1);
             this.verifyEqual(this.testObj.times(10), 45);
             this.verifyEqual(this.testObj.isotope, '18F');
-            this.verifyEqual(this.testObj.counts(10), 9.587431374733398e+03, 'RelTol', 1e-9);
-            this.verifyEqual(this.testObj.specificActivity(10), 3.095462012154035e+04, 'RelTol', 1e-9);
+            this.verifyEqual(this.testObj.counts(10), 9.545187860008738e+03, 'RelTol', 1e-9);
+            this.verifyEqual(this.testObj.specificActivity(10), 3.081822989356473e+04, 'RelTol', 1e-9);
             this.verifyEqual(this.testObj.invEfficiency, 1);
             this.verifyEqual(this.testObj.W, 1);
         end
@@ -62,21 +62,21 @@ classdef Test_Caprac < matlab.unittest.TestCase
             this.verifyEqual(length(this.testObj.times), 32);
         end
         function test_counts(this)
-            this.verifyEqual(this.testObj.counts(1),  1.177191032670612,     'RelTol', 1e-12);
-            this.verifyEqual(this.testObj.counts(10), 9.587431374733398e+03, 'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.counts(1),  1.190209966099220,     'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.counts(10), 9.545187860008738e+03, 'RelTol', 1e-12);
             this.verifyEqual(length(this.testObj.counts), 32);
         end
         function test_specificActivity(this)
-            this.verifyEqual(this.testObj.specificActivity(1),  2.986619901315571,     'RelTol', 1e-12);
-            this.verifyEqual(this.testObj.specificActivity(10), 3.095462012154035e+04, 'RelTol', 1e-12);
-            this.verifyEqual(this.testObj.specificActivity(32), 1.507840614268497e+03, 'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(1),  3.019649889306200,     'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(10), 3.081822989356473e+04, 'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(32), 1.497500815599805e+03, 'RelTol', 1e-12);
             this.verifyEqual(length(this.testObj.specificActivity), 32);
         end
         function test_correctedSpecificActivity(this)
             this.testObj = this.testObj.correctedActivities(0);
-            this.verifyEqual(this.testObj.specificActivity(1),  2.986619901315571,     'RelTol', 1e-12);
-            this.verifyEqual(this.testObj.specificActivity(10), 3.110156436415018e+04, 'RelTol', 1e-12);
-            this.verifyEqual(this.testObj.specificActivity(32), 2.200544802823169e+03, 'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(1),  3.0196498893062001,    'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(10), 3.096452668003811e+04, 'RelTol', 1e-12);
+            this.verifyEqual(this.testObj.specificActivity(32), 2.185454885488859e+03, 'RelTol', 1e-12);
             this.verifyEqual(length(this.testObj.specificActivity), 32);
         end
 	end

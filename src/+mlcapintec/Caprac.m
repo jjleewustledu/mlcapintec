@@ -81,7 +81,6 @@ classdef Caprac < mlpet.AbstractAifData
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'manualData', [],        @(x) isa(x, 'mldata.IManualMeasurements'));
-            addParameter(ip, 'doseAdminDatetime', [], @isdatetime);
             addParameter(ip, 'invEfficiency', 1,      @isnumeric);
             addParameter(ip, 'aifTimeShift', 0,       @isnumeric);
             parse(ip, varargin{:});            
@@ -89,11 +88,9 @@ classdef Caprac < mlpet.AbstractAifData
             this.timingData_ = mldata.TimingData( ...
                 'times', this.manualData_.timingData.times, ...
                 'dt', this.manualData_.timingData.dt); 
-            this.doseAdminDatetime_ = ip.Results.doseAdminDatetime;
             this.invEfficiency_ = ip.Results.invEfficiency;
             this = this.shiftTimes(ip.Results.aifTimeShift); % @deprecated  
             
-            this = this.updateScannerData;
             this = this.updateActivities;
             this.isDecayCorrected  = false;
             this.isPlasma = false;
@@ -167,17 +164,9 @@ classdef Caprac < mlpet.AbstractAifData
             m  = m(isvalid);
             g  = ip.Results.measurements.Ge_68_Kdpm; % kdpm
             g  = g(isvalid);
-            sa = this.manualData_.capracInvEfficiency(g, m)./m; % kdpm/g, efficiency-corrected
+            sa = this.manualData_.capracInvEfficiency(g./m, m); % kdpm/g, efficiency-corrected
             sa = sa * mlpet.Blood.BLOODDEN * this.KDPM_TO_BQ; % Bq/mL
             sa = ensureRowVector(sa);
-        end
-        function this = updateScannerData(this)
-            if (isa(this.scannerData_, 'mlpet.IScannerData'))
-                sd = this.scannerData_;
-                sd.doseAdminDatetime = this.manualData_.tracerAdmin.TrueAdmin_Time_Hh_mm_ss('[18F]DG');
-                sd.datetime0 = sd.datetime0 - seconds(this.manualData_.clocks.TimeOffsetWrtNTS____s('mMR console'));
-                this.scannerData_ = sd;
-            end
         end
         function this = updateActivities(this)
             this = this.updateTimingData;
@@ -188,6 +177,7 @@ classdef Caprac < mlpet.AbstractAifData
         function this = updateTimingData(this)
             dt_ = this.datetime;
             this.timingData_.times = seconds(dt_ - dt_(1));
+            this.timingData_.datetime0 = dt_(1);
         end
     end
     
