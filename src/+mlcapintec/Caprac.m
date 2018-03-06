@@ -80,9 +80,9 @@ classdef Caprac < mlpet.AbstractAifData
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'manualData', [],        @(x) isa(x, 'mldata.IManualMeasurements'));
-            addParameter(ip, 'invEfficiency', 1,      @isnumeric);
-            addParameter(ip, 'aifTimeShift', 0,       @isnumeric);
+            addParameter(ip, 'manualData', [],   @(x) isa(x, 'mldata.IManualMeasurements'));
+            addParameter(ip, 'invEfficiency', 1, @isnumeric);
+            addParameter(ip, 'aifTimeShift', 0,  @isnumeric);
             parse(ip, varargin{:});            
             this.manualData_ = ip.Results.manualData;
             this.timingData_ = mldata.TimingData( ...
