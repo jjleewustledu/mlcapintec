@@ -111,9 +111,30 @@ classdef Caprac < mlpet.AbstractAifData
             addParameter(ip, 'tracerName', '', @ischar);
             parse(ip, varargin{:});
             
-            tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
-                 ~isnan(ip.Results.aTable.Ge_68_Kdpm) & ...
-                        ip.Results.aTable.MASSSAMPLE_G > 0;
+            try
+                tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
+                     ~isnan(ip.Results.aTable.Ge_68_Kdpm) & ...
+                            ip.Results.aTable.MASSSAMPLE_G > 0;
+            catch ME
+                try
+                tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
+                     ~isnan(ip.Results.aTable.ge_68_Kdpm) & ...
+                            ip.Results.aTable.MASSSAMPLE_G > 0;
+                catch ME
+                    try
+                        tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
+                             ~isnan(ip.Results.aTable.Ge_68_Kdpm) & ...
+                                    ip.Results.aTable.MassSample_G > 0;
+                    catch ME
+                        try
+                            tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
+                                 ~isnan(ip.Results.aTable.ge_68_Kdpm) & ...
+                                        ip.Results.aTable.MassSample_G > 0;
+                        catch ME
+                        end
+                    end
+                end
+            end
             if (~isempty(ip.Results.tracerName))
                 tf = tf & strcmp(ip.Results.aTable, ip.Results.tracerName);
             end
@@ -143,7 +164,11 @@ classdef Caprac < mlpet.AbstractAifData
             parse(ip, varargin{:});            
             
             isvalid = this.isValidTableRow(ip.Results.measurements);
-            m  = ip.Results.measurements.MASSSAMPLE_G; % g
+            try
+                m  = ip.Results.measurements.MASSSAMPLE_G; % g
+            catch                
+                m  = ip.Results.measurements.MassSample_G; % g
+            end
             m  = m(isvalid);
             g  = ip.Results.measurements.W_01_Kcpm; % kcpm
             g  = g(isvalid);
@@ -159,14 +184,24 @@ classdef Caprac < mlpet.AbstractAifData
             addOptional(ip, 'measurements', this.manualData_.fdg, @istable);
             parse(ip, varargin{:});            
             
-            isvalid = this.isValidTableRow(ip.Results.measurements);
-            m  = ip.Results.measurements.MASSSAMPLE_G; % g
-            m  = m(isvalid);
-            g  = ip.Results.measurements.Ge_68_Kdpm; % kdpm
-            g  = g(isvalid);
-            sa = this.manualData_.capracInvEfficiency(g./m, m); % kdpm/g, efficiency-corrected
-            sa = sa * mlpet.Blood.BLOODDEN * this.KDPM_TO_BQ; % Bq/mL
-            sa = ensureRowVector(sa);
+                isvalid = this.isValidTableRow(ip.Results.measurements);
+                try
+                    m  = ip.Results.measurements.MASSSAMPLE_G; % g
+                catch ME
+                    %dispwarning(ME);
+                    m  = ip.Results.measurements.MassSample_G; % g
+                end
+                m  = m(isvalid);
+                try
+                    g  = ip.Results.measurements.Ge_68_Kdpm; % kdpm
+                catch ME
+                    %dispwarning(ME);
+                    g  = ip.Results.measurements.ge_68_Kdpm; % kdpm                    
+                end
+                g  = g(isvalid);
+                sa = this.manualData_.capracInvEfficiency(g./m, m); % kdpm/g, efficiency-corrected
+                sa = sa * mlpet.Blood.BLOODDEN * this.KDPM_TO_BQ; % Bq/mL
+                sa = ensureRowVector(sa);
         end
         function this = updateActivities(this)
             this = this.updateTimingData;
