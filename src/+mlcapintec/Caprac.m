@@ -92,6 +92,7 @@ classdef Caprac < mlpet.AbstractAifData
             this = this.shiftTimes(ip.Results.aifTimeShift); % @deprecated  
             
             this = this.updateActivities;
+            this = this.updatePropertyDecayCorrection;
             this.isDecayCorrected_ = false;
             this.isPlasma = false;
         end        
