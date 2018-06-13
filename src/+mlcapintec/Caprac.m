@@ -11,6 +11,7 @@ classdef Caprac < mlpet.AbstractAifData
     properties (Constant)
         KDPM_TO_BQ  = 1000/60
         KCPM_TO_CPS = 1000/60
+        TRACER      = '[18F]DG'
     end
     
 	properties (Dependent) 
@@ -139,6 +140,7 @@ classdef Caprac < mlpet.AbstractAifData
             if (~isempty(ip.Results.tracerName))
                 tf = tf & strcmp(ip.Results.aTable, ip.Results.tracerName);
             end
+            tf = tf & strcmp(ip.Results.aTable.TRACER, this.TRACER);
         end
         function t    = measurementsTable2DatetimesDrawn(this, varargin)
             ip = inputParser;
