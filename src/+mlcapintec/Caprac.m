@@ -112,27 +112,31 @@ classdef Caprac < mlpet.AbstractAifData
             addOptional( ip, 'aTable', this.manualData_.fdg, @istable);
             addParameter(ip, 'tracerName', '', @ischar);
             parse(ip, varargin{:});
+            TIMEDRAWN_Hh_mm_ss = ensureDatetime(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss);
+            Ge_68_Kdpm         = ip.Results.aTable.Ge_68_Kdpm;
+            MASSSAMPLE_G       = ip.Results.aTable.MASSSAMPLE_G;  
             
             try
-                tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
-                     ~isnan(ip.Results.aTable.Ge_68_Kdpm) & ...
-                            ip.Results.aTable.MASSSAMPLE_G > 0;
+                tf = ~isnat(TIMEDRAWN_Hh_mm_ss) & ...
+                     ~isnan(Ge_68_Kdpm) & ...
+                            MASSSAMPLE_G > 0;
             catch ME
                 try
-                tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
-                     ~isnan(ip.Results.aTable.ge_68_Kdpm) & ...
-                            ip.Results.aTable.MASSSAMPLE_G > 0;
+                    tf = ~isnat(TIMEDRAWN_Hh_mm_ss) & ...
+                         ~isnan(ge_68_Kdpm) & ...
+                                MASSSAMPLE_G > 0;
                 catch ME
                     try
-                        tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
-                             ~isnan(ip.Results.aTable.Ge_68_Kdpm) & ...
-                                    ip.Results.aTable.MassSample_G > 0;
+                        tf = ~isnat(TIMEDRAWN_Hh_mm_ss) & ...
+                             ~isnan(Ge_68_Kdpm) & ...
+                                    MassSample_G > 0;
                     catch ME
                         try
-                            tf = ~isnat(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss) & ...
-                                 ~isnan(ip.Results.aTable.ge_68_Kdpm) & ...
-                                        ip.Results.aTable.MassSample_G > 0;
+                            tf = ~isnat(TIMEDRAWN_Hh_mm_ss) & ...
+                                 ~isnan(ge_68_Kdpm) & ...
+                                        MassSample_G > 0;
                         catch ME
+                            dispexcept(ME);
                         end
                     end
                 end
@@ -149,6 +153,7 @@ classdef Caprac < mlpet.AbstractAifData
             
             t = ip.Results.measurements.TIMEDRAWN_Hh_mm_ss;
             t = t(this.isValidTableRow(ip.Results.measurements));
+            t = ensureDatetime(t); 
             t = ensureRowVector(t);
         end
         function t    = measurementsTable2DatetimesCounted(this, varargin)
@@ -158,6 +163,7 @@ classdef Caprac < mlpet.AbstractAifData
             
             t = ensureRowVector(ip.Results.measurements.TIMECOUNTED_Hh_mm_ss);
             t = t(this.isValidTableRow(ip.Results.measurements));
+            t = ensureDatetime(t); 
         end
         function c    = measurementsTable2counts(this, varargin)
             %  @return row-vector of counts (counts/s).
