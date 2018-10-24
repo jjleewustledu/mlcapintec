@@ -15,7 +15,7 @@ classdef Caprac < mlpet.AbstractAifData
     end
     
 	properties (Dependent) 
-        invEfficiency % outer-most efficiency for s.a. determined by cross-calibration
+        invEfficiency % device-level efficiency for activities determined by cross-calibration
     end
     
     methods      

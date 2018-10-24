@@ -14,7 +14,7 @@ classdef Test_Caprac < matlab.unittest.TestCase
  	
 
 	properties
-        doseAdminDatetimeFDG = datetime(2016,9,23,12,43,52,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+        doseAdminDatetimeFDG = datetime(2016,9,23,12,43,52,  'TimeZone', mlkinetics.Timing.PREFERRED_TIMEZONE);
         ccirRadMeasurementsDir = fullfile(getenv('HOME'), 'Documents/private')
         mand
  		registry
