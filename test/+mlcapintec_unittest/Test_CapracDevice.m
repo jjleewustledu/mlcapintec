@@ -27,6 +27,12 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
  			this.assertEqual(1,1);
         end
         function test_ctor(this)
+            this.verifyClass(this.session, 'mlraichle.MockSession');
+            this.verifyClass(this.scan, 'mlraichle.MockScan');            
+            this.verifyClass(this.radMeas, 'mlraichle.CCIRRadMeasurements');
+            this.verifyClass(this.refSources, 'mlpet.ReferenceSource');
+            this.verifyClass(this.testObj, 'mlcapintec.CapracDevice');
+            this.testObj
         end
         function test_logger(this) 
         end
@@ -39,6 +45,7 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
         function test_referenceSources(this)
         end
         function test_calibrateDevice(this)
+            this.testObj.calibrateDevice
         end
         function test_makeMeasurements(this)
         end

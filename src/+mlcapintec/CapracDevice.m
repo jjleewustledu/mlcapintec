@@ -1,5 +1,11 @@
 classdef CapracDevice < handle & mlpet.Instrument
 	%% CAPRACDEVICE  
+    %  1/22/2016
+    %  4/8/2016
+    %  8/10/2018
+    %  8/13/2018
+    %  9/12/2018 
+    %  10/5/2018 invEff = 1.031
 
 	%  $Revision$
  	%  was created 18-Oct-2018 14:00:07 by jjlee,
@@ -7,6 +13,7 @@ classdef CapracDevice < handle & mlpet.Instrument
  	%% It was developed on Matlab 9.4.0.813654 (R2018a) for MACI64.  Copyright 2018 John Joowon Lee.
  	
 	properties (Constant)
+        CS_RESCALING = 1.204
  		MAX_NORMAL_BACKGROUND = 300
     end
     
@@ -51,7 +58,7 @@ classdef CapracDevice < handle & mlpet.Instrument
                 this.invEfficieny_ = this.estimateInvEfficiencyFromReferenceSources;
                 return
             end            
-            this.invEfficiency_ = 1;
+            this.invEfficiency_ = 1.031;
         end
         function d = makeMeasurements(this)
             error('mlpet:NotImplementedError');
@@ -131,22 +138,22 @@ classdef CapracDevice < handle & mlpet.Instrument
                 ie = this.estimateInvEfficiencyFromReferenceSource(this, '[137Cs]');
                 return
             end
-            ie = mean( ...
-                this.estimateInvEfficiencyFromReferenceSource(this, '[22Na]'), ...
-                this.estimateInvEfficiencyFromReferenceSource(this, '[68Ge]'));
-                this.estimateInvEfficiencyFromReferenceSource(this, '[137Cs]'); % for logging only
+            ie = [this.estimateInvEfficiencyFromReferenceSource('[22Na]') ...
+                  this.estimateInvEfficiencyFromReferenceSource('[68Ge]') ...
+                  this.estimateInvEfficiencyFromReferenceSource('[137Cs]')]; % for logging only
+            ie = mean(ie(~isempty(ie)));
         end
         function ie   = estimateInvEfficiencyFromReferenceSource(this, isotope)
             rm = this.radMeasurements;
-            assert(contains(rm.REFERENCE_SOURCES, isotope));
+            assert(any(contains(rm.REFERENCE_SOURCES, isotope)));
             switch (isotope)
                 case '[137Cs]'
                     ie = this.predictedReferenceSourceActivity(isotope, 'kdpm')./ ...
-                        rm.wellCounterRefSrc(isotope).CF_Kdpm;
+                        (this.CS_RESCALING*rm.wellCounterRefSrc(isotope).CF_Kdpm');
                     
                 case {'[22Na]' '[68Ge]'}
                     ie = this.predictedReferenceSourceActivity(isotope, 'kdpm')./ ...
-                        rm.wellCounterRefSrc(isotope).Ge_68_Kdpm;
+                        rm.wellCounterRefSrc(isotope).Ge_68_Kdpm';
                 otherwise
                     error('mlcapintec:ValueError', ...
                         'CapracDevice.estimateInvEfficiencyFromReferenceSource.isotope->%s is not supported', ...
@@ -167,7 +174,11 @@ classdef CapracDevice < handle & mlpet.Instrument
             %  @returns activity is numeric.
             
             rs = this.selectReferenceSource(isotope);
-            a = rs.predictedActivity(rs.activity, rs.activityUnits, activityUnits);
+            wcrs = this.radMeasurements.wellCounterRefSrc(isotope);
+            a = [];
+            for iwcrs = 1:height(wcrs)
+                a = [a rs.predictedActivity(wcrs{iwcrs,'TIMECOUNTED_Hh_mm_ss'}, activityUnits)]; %#ok<AGROW>
+            end
         end
         function rs   = selectReferenceSource(this, isotope)
             %  @param isotope is char.
@@ -175,13 +186,10 @@ classdef CapracDevice < handle & mlpet.Instrument
             
             rs = [];
             for irs = 1:length(this.referenceSources)
-                if (strcmp(this.referenceSource(irs).isotope, isotope))
-                    rs = [rs this.referenceSource(irs)]; %#ok<AGROW>
+                if (strcmp(this.referenceSources(irs).isotope, isotope))
+                    rs = [rs this.referenceSources(irs)]; %#ok<AGROW>
                 end
             end
-            assert(1 == length(rs), ...
-                'mlcapintec:ValueError', ...
-                'CapracDevice.selectReferenceSource found %i ref sources for %i', length(rs), isotope);
         end
     end
 
