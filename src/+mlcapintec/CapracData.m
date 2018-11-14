@@ -1,4 +1,4 @@
-classdef CapracData < handle & AbstractTracerData
+classdef CapracData < handle & mlpet.AbstractTracerData
 	%% CAPRACDATA  
 
 	%  $Revision$
@@ -16,7 +16,7 @@ classdef CapracData < handle & AbstractTracerData
  			%% CAPRACDATA
  			%  @param .
 
- 			this = this@AbstractTracerData(varargin{:});
+ 			this = this@mlpet.AbstractTracerData(varargin{:});
  		end
  	end 
 

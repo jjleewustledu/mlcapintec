@@ -23,7 +23,7 @@ classdef CapracDevice < handle & mlpet.Instrument
         referenceSources
     end
     
-    methods (Static)        
+    methods (Static)
         function checkRangeInvEfficiency(ie)
             %  @param required ie is numeric.
             %  @throws mlcapintec:ValueError.
@@ -31,6 +31,23 @@ classdef CapracDevice < handle & mlpet.Instrument
             assert(all(0.95 < ie) && all(ie < 1.05), ...
                 'mlcapintec:ValueError', ...
                 'CapracDevice.checkRangeInvEfficiency.ie->%s', mat2str(ie));
+        end
+        function [cal,h1,h2] = screenInvEfficiencies(varargin)
+            %  @param filepath is dir; default := getenv('CCIR_RAD_MEASUREMENTS_DIR').
+            %  @param refSource is mlpet.ReferenceSource.
+            %  @return cal is CapracCalibration; h1, h2 are figure handles.
+            %  @return plot.
+            
+            [cal,h1,h2] = mlcapintec.RefSourceCalibration.screenInvEfficiencies(varargin{:});
+        end
+        function [cal,h1,h2] = screenInvEfficiency(varargin)
+            %  @param filepath is dir; default := getenv('CCIR_RAD_MEASUREMENTS_DIR').
+            %  @param filename is char.
+            %  @param refSource is mlpet.ReferenceSource.
+            %  @return cal is CapracCalibration; h1, h2 are figure handles.
+            %  @return plot.
+
+            [cal,h1,h2] = mlcapintec.RefSourceCalibration.screenInvEfficiency(varargin{:});
         end
     end
 
@@ -51,17 +68,45 @@ classdef CapracDevice < handle & mlpet.Instrument
         %%
         
         function this = calibrateDevice(this)
-            %% CALIBRATEDEVICE sets invEfficiency for this instrument by comparing its calibration data 
-            %  against reference data.
+            %% CALIBRATEDEVICE prepares invEfficiency and calibrateMeasurements for this instrument using calibration data.
             
-            if (this.hasReferenceSourceMeasurements)
-                this.invEfficieny_ = this.estimateInvEfficiencyFromReferenceSources;
-                return
-            end            
-            this.invEfficiency_ = 1.031;
+            this.calibrations_.withRefSource = this.estimateInvEfficiencyFromReferenceSources;
+            this.calibrations_.withSensitivity = [];
+            this.calibrations_.withAperture = [];
         end
-        function d = makeMeasurements(this)
-            error('mlpet:NotImplementedError');
+        function m    = calibrateMeasurement(this, varargin)
+            m = this.calibrateWithRefSource( ...
+                    this.calibrateWithSensitivity( ...
+                        this.calibrateWithAperture(ip.Results.measurement)));
+        end
+        function m    = calibrateWithAperture(this, varargin)
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'measurement', @isnumeric);
+            parse(ip);
+        end
+        function m    = calibrateWithRefSource(this, varargin)
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'measurement', @isnumeric);
+            parse(ip);
+        end
+        function m    = calibrateWithSensitivity(this, varargin)
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'measurement', @isnumeric);
+            parse(ip);
+        end
+        function ie   = invEfficiency(this, varargin)
+            %% INVEFFICIENCY is the linear estimate of the mapping from raw measurements to calibrated measurements.
+            %  @throws mlpet.ValueError if the gradient of the estimate exceeds Instrument.ALPHA.
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'measurement', @isnumeric);
+            parse(ip);
+            
+            ie = this.calibrateMeasurement(varargin{:}) ./ ip.Results.measurement;            
+            this.checkRangeInvEfficiency(ie); 
         end
         
  		function this = CapracDevice(varargin)
@@ -75,7 +120,7 @@ classdef CapracDevice < handle & mlpet.Instrument
             addParameter(ip, 'referenceSources', [], @(x) isa(x, 'mlpet.ReferenceSource') || isempty(x));
             parse(ip, varargin{:});
             this.referenceSources_ = ip.Results.referenceSources;
-            this = this.checkBackground;
+            this = this.checkBackgroundMeasurements;
  		end
     end 
     
@@ -83,17 +128,18 @@ classdef CapracDevice < handle & mlpet.Instrument
     
     properties (Access = private)
         background_  
+        invEfficieny_
         referenceSources_
     end
     
     methods (Access = private)
-        function this = checkBackground(this)
-            %% CHECKBACKGROUND warns if measurements in this.radMeasurements are concerning.
+        function this = checkBackgroundMeasurements(this)
+            %% CHECKBACKGROUNDMEASUREMENTS warns if measurements in this.radMeasurements are concerning.
             
             rm = this.radMeasurements;
-            assert(isprop(rm, 'countsFdg'), 'mlcapintec:ValueError', 'CapracDevice.checkBackground');
-            assert(isprop(rm, 'countsOcOo'), 'mlcapintec:ValueError', 'CapracDevice.checkBackground');
-            assert(isprop(rm, 'wellCounter'), 'mlcapintec:ValueError', 'CapracDevice.checkBackground');
+            assert(isprop(rm, 'countsFdg'), 'mlcapintec:ValueError', 'CapracDevice.checkBackgroundMeasurements');
+            assert(isprop(rm, 'countsOcOo'), 'mlcapintec:ValueError', 'CapracDevice.checkBackgroundMeasurements');
+            assert(isprop(rm, 'wellCounter'), 'mlcapintec:ValueError', 'CapracDevice.checkBackgroundMeasurements');
             
             time = [rm.countsFdg.Time_Hh_mm_ss; ...
                     rm.countsOcOo.Time_Hh_mm_ss; ...
@@ -115,7 +161,7 @@ classdef CapracDevice < handle & mlpet.Instrument
             
             if (any(counts > this.MAX_NORMAL_BACKGROUND))
                 wid = 'mlcapintec:ValueWarning';
-                wmsg = sprintf('CapracDevice.checkBackground.counts->%g', this.MAX_NORMAL_BACKGROUND);
+                wmsg = sprintf('CapracDevice.checkBackgroundMeasurements.counts->%g', this.MAX_NORMAL_BACKGROUND);
                 warning(wid, wmsg); %#ok<SPWRN>
                 plot(bg.time, bg.counts);
                 ylabel('cpm');
@@ -124,7 +170,7 @@ classdef CapracDevice < handle & mlpet.Instrument
             end
             if (any(countsSE > this.MAX_NORMAL_BACKGROUND/10))
                 wid = 'mlcapintec:ValueWarning';
-                wmsg = sprintf('CapracDevice.checkBackground.countsSE->%g', this.MAX_NORMAL_BACKGROUND/10);
+                wmsg = sprintf('CapracDevice.checkBackgroundMeasurements.countsSE->%g', this.MAX_NORMAL_BACKGROUND/10);
                 warning(wid, wmsg); %#ok<SPWRN>
                 plot(bg.time, bg.countsSE);
                 ylabel('cpm');

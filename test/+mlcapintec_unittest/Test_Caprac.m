@@ -33,7 +33,6 @@ classdef Test_Caprac < matlab.unittest.TestCase
         end
         function test_ctor(this)
             this.verifyClass(this.testObj, 'mlcapintec.Caprac');
-            %this.verifyEqual(this.testObj.datetime0, this.doseAdminDatetimeFDG);
             this.verifyEqual(this.testObj.doseAdminDatetime, this.doseAdminDatetimeFDG);
             this.verifyEqual(this.testObj.dt, 1);
             this.verifyEqual(this.testObj.times(10), 45);

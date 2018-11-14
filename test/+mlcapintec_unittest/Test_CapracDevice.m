@@ -26,6 +26,16 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
  			this.verifyEqual(1,1);
  			this.assertEqual(1,1);
         end
+        function test_screenInvEfficencies(this)
+            this.testObj.screenInvEfficiencies('refSource', this.refSources(1));
+        end
+        function test_screenInvEfficency(this)
+            this.testObj.screenInvEfficiency('refSource', this.refSources(1));
+            this.testObj.screenInvEfficiency('refSource', this.refSources(2));
+            this.testObj.screenInvEfficiency('refSource', this.refSources(3));
+        end
+        function test_invEfficiency(this)
+        end
         function test_ctor(this)
             this.verifyClass(this.session, 'mlraichle.MockSession');
             this.verifyClass(this.scan, 'mlraichle.MockScan');            
@@ -45,7 +55,7 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
         function test_referenceSources(this)
         end
         function test_calibrateDevice(this)
-            this.testObj.calibrateDevice
+            %this.testObj.calibrateDevice
         end
         function test_makeMeasurements(this)
         end
