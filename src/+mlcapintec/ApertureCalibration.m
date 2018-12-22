@@ -1,4 +1,4 @@
-classdef ApertureCalibration < handle & mlcapintec.CapracCalibration
+classdef ApertureCalibration < handle & mlpet.AbstractCalibration
 	%% APERTURECALIBRATION  
 
 	%  $Revision$
@@ -11,21 +11,15 @@ classdef ApertureCalibration < handle & mlcapintec.CapracCalibration
  		BEST_VOLUME = 0.5 % mL
     end
     
-    properties (Dependent)
-        trainedModelInvEff
-        trainedModelInvEff_mat % mat-filename
-    end
-    
     methods (Static)
-        function [this,h1,h2] = screenInvEfficiency(varargin)
-            %  @param filepath is dir;  default := getenv('CCIR_RAD_MEASUREMENTS_DIR').
-            %  @param filename is char; default := 'CCIRRadMeasurements 2017dec6.xlsx'.
+        function [this,h1,h2] = screenInvEfficiency()
+            %% displays a table of voluem, specific activity and efficiency^{-1}, and plots thereof.
             %  @return call this.trainModelInvEff if this.trainedModelInvEff is empty.
             %  @return this is the ApertureCalibration.
             %  @return h1, h2 are figure handles to plots from "volume" to "specific activity" and "efficiency^{-1}".
             
-            import mlcapintec.ApertureCalibration;
-            this = ApertureCalibration('filename', ApertureCalibration.FILENAME, varargin{:});            
+            radMeas = mlpet.CCIRRadMeasurements.createByDate(datetime(2017,12,6));
+            this = mlcapintec.ApertureCalibration(radMeas);            
             tbl = table(this);
             
             disp(tbl);
@@ -38,27 +32,32 @@ classdef ApertureCalibration < handle & mlcapintec.CapracCalibration
             xlabel('volume / mL');
             ylabel('efficiency^{-1}');
             
-            if (isempty(this.trainedModelInvEff_))
-                this.trainedModelInvEff_ = this.trainModelInvEff;
-            end
+            this.selfCalibrate;
         end
     end
 
 	methods 
         
-        %% GET
-        
-        function g = get.trainedModelInvEff(this)
-            g = this.trainedModelInvEff_;
-        end
-        function g = get.trainedModelInvEff_mat(this)
-            g = fullfile( ...
-                mlpet.Resources.instance.matlabDrive, ...
-                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffAperature.mat');
-        end
-        
         %%
         
+        function ie   = predictInvEff(this, varargin)
+            %% PREDICTINVEFF predicts efficiency^{-1} from sample volumes.
+            %  @param volume is table || is numeric.
+            %  @return ie is numeric.
+            
+            ip = inputParser;
+            addParameter(ip, 'volume', @(x) istable(x) || isnumeric(x));
+            parse(ip, varargin{:});
+            v = ip.Results.volume;
+            
+            if (isnumeric(v))
+                v = ensureColVector(v);
+                v = table(v);
+            end
+            assert(istable(v));
+            assert(~isempty(this.trainedModelInvEff));
+            ie = this.trainedModelInvEff.predictFcn(v);
+        end
         function tbl  = table(this, varargin)
             %% TABLE
             %  @return table(..., 'VariableNames', {'volume' 'specificActivity' 'invEfficiency'}, varargin{:})
@@ -81,13 +80,21 @@ classdef ApertureCalibration < handle & mlcapintec.CapracCalibration
  		function this = ApertureCalibration(varargin)
  			%% APERTURECALIBRATION
 
- 			this = this@mlcapintec.CapracCalibration(varargin{:});
+            this = this@mlpet.AbstractCalibration(varargin{:});
  		end
     end 
     
     %% PROTECTED
     
-    methods (Access = protected)
+    methods (Access = protected)        
+        function g = getTrainedModelInvEff__(this)
+            g = this.trainedModelInvEff_;
+        end
+        function g = getTrainedModelInvEff_mat__(~)
+            g = fullfile( ...
+                mlpet.Resources.instance.matlabDrive, ...
+                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffAperature.mat');
+        end
         function [trainedModel, validationRMSE] = trainRegressionLearner__(~, trainingData)
             % [trainedModel, validationRMSE] = trainRegressionLearner__(trainingData)
             % returns a trained regression model and its RMSE. This code recreates the

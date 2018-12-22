@@ -1,4 +1,4 @@
-classdef RefSourceCalibration < mlcapintec.CapracCalibration
+classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
 	%% REFSOURCECALIBRATION  
 
 	%  $Revision$
@@ -14,8 +14,6 @@ classdef RefSourceCalibration < mlcapintec.CapracCalibration
     properties (Dependent)
         activity
         refSource
-        trainedModelInvEff
-        trainedModelInvEff_mat % mat-filename
     end
     
     methods (Static)
@@ -36,10 +34,14 @@ classdef RefSourceCalibration < mlcapintec.CapracCalibration
             
             xlsx = mlsystem.DirTool(fullfile(ip.Results.filepath, 'CCIRRadMeasurements*.xlsx'));
             tbl  = [];
-            import mlcapintec.RefSourceCalibration;
             for x = 1:length(xlsx.fqfns)
-                this_ = RefSourceCalibration(varargin{:}, 'filepath', ip.Results.filepath, 'filename', xlsx.fns{x});
-                tbl = vertcat(tbl, table(this_)); %#ok<AGROW>
+                try
+                    radMeas_ = mlpet.CCIRRadMeasurements.createByFilename(fullfile(ip.Results.filepath, xlsx.fns{x}));
+                    this_ = mlcapintec.RefSourceCalibration(radMeas_, varargin{:});
+                    tbl = vertcat(tbl, table(this_)); %#ok<AGROW>
+                catch ME
+                    dispwarning(ME);
+                end
             end                
             this_.tableCache_ = tbl;        
             this = this_;
@@ -78,7 +80,8 @@ classdef RefSourceCalibration < mlcapintec.CapracCalibration
             addParameter(ip, 'makeplot', true, @islogical);
             addParameter(ip, 'trainmodel', false, @islogical);
             parse(ip);
-            this = RefSourceCalibration('filename', ip.Results.filename, varargin{:});            
+            radMeas = mlpet.CCIRRadMeasurements.createByFilename(ip.Results.filename);
+            this = RefSourceCalibration(radMeas, varargin{:});            
             tbl = table(this);  
             
             disp(tbl);
@@ -118,30 +121,29 @@ classdef RefSourceCalibration < mlcapintec.CapracCalibration
         function g = get.refSource(this)
             g = this.refSource_;
         end
-        function g = get.trainedModelInvEff(this)
-            %  invEfficiency 137Cs:  mean -> 1.20719,  std -> 0.00351095
-            %  invEfficiency 22Na:   mean -> 1.02843,  std -> 0.019226
-            %  invEfficiency 68Ge:   mean -> 0.978943, std -> 0.00854864
-            
-            switch (this.refSource_.isotope)
-                case '68Ge'
-                    g = 0.978943;
-                case '22Na'
-                    g = 1.02843 * (0.970955/1.03063);
-                case '137Cs'  
-                    g = 1.20719 * (0.970955/1.20462);
-                otherwise
-                    error('mlcapintec:ValueError', 'RefSourceCalibration.get.trainedModelInvEff');
-            end
-        end
-        function g = get.trainedModelInvEff_mat(~)
-            g = fullfile( ...
-                mlpet.Resources.instance.matlabDrive, ...
-                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffRefSource.mat');
-        end
         
         %%
         
+        function ie   = predictInvEff(this, varargin)
+            %% PREDICTINVEFF predicts efficiency^{-1} from activity in Bq.
+            %  @param activies is table || is numeric.
+            %  @return ie is numeric.
+            
+            ip = inputParser;
+            addRequired(ip, 'sa', @(x) istable(x) || isnumeric(x));
+            parse(ip, varargin{:});
+            sa = ip.Results.sa;
+            
+            if (isnumeric(sa))
+                sa = ensureColVector(sa);
+                sa = table(sa);
+            end
+            assert(istable(sa));
+            sz = size(sa.(sa.Properties.VariableNames{1}));
+            ie = this.trainedModelInvEff*ones(sz);
+        end
+        function this = selfCalibrate(this)
+        end
         function tbl  = table(this, varargin)
             %% TABLE
             %  @return table(..., 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:})
@@ -151,15 +153,15 @@ classdef RefSourceCalibration < mlcapintec.CapracCalibration
                 tbl = this.tableCache_;
                 return
             end
+            if (isempty(this.refSource))
+                tbl = [];
+                return
+            end
             
             import mlcapintec.RefSourceCalibration;
             import mlpet.Radionuclides.halflifeOf;
             tr  = this.wellCounter.TRACER;
             sel = strcmp(tr, sprintf('[%s]', this.refSource.isotope));
-            if (isempty(sel))
-                tbl = [];
-                return
-            end
             
             t   = this.wellCounter.TIMECOUNTED_Hh_mm_ss(sel); % datetime
             a   = this.activity(sel); % Bq            
@@ -168,14 +170,18 @@ classdef RefSourceCalibration < mlcapintec.CapracCalibration
             assert(all(~isnan(ie)), 'mlcapintec:ValueError', 'RefSourceCalibration.table');            
             tbl = table(t, a, pa, ie, 'VariableNames', {'datetime' 'activity' 'predActivity' 'invEfficiency'}, varargin{:});
         end
+        function mdl  = trainModelInvEff(~)
+            mdl = [];
+        end
 		  
  		function this = RefSourceCalibration(varargin)
  			%% REFSOURCECALIBRATION
  			%  @param isotope \in {'[68Ge]' '[22Na]' '[137Cs]'}.
 
- 			this = this@mlcapintec.CapracCalibration(varargin{:});
+ 			this = this@mlpet.AbstractCalibration(varargin{:});
             ip = inputParser;
             ip.KeepUnmatched = true;
+            addRequired(ip, 'radMeas', @(x) isa(x, 'mlpet.RadMeasurements'));
             addParameter(ip, 'refSource', [], @(x) isa(x, 'mlpet.ReferenceSource'));
             parse(ip, varargin{:});  
             this.refSource_ = ip.Results.refSource;
@@ -184,10 +190,27 @@ classdef RefSourceCalibration < mlcapintec.CapracCalibration
     
     %% PROTECTED
     
-    methods (Access = protected)
-        function [trainedModel, validationRMSE] = trainRegressionLearner__(~, varargin)
-            trainedModel = [];
-            validationRMSE = [];
+    methods (Access = protected) 
+        function g = getTrainedModelInvEff__(this)
+            %  invEfficiency 137Cs:  mean -> 1.20775,  std -> 0.00341237
+            %  invEfficiency 22Na:   mean -> 1.02843,  std -> 0.019226
+            %  invEfficiency 68Ge:   mean -> 0.978943, std -> 0.00854864
+            
+            switch (this.refSource_.isotope)
+                case '68Ge'
+                    g = 0.978943;
+                case '22Na'
+                    g = 1.02843 * (0.970955/1.03063);
+                case '137Cs'  
+                    g = 1.20775 * (0.970955/1.20462);
+                otherwise
+                    error('mlcapintec:ValueError', 'RefSourceCalibration.get.trainedModelInvEff');
+            end
+        end
+        function g = getTrainedModelInvEff_mat__(~)
+            g = fullfile( ...
+                mlpet.Resources.instance.matlabDrive, ...
+                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffRefSource.mat');
         end
     end
     

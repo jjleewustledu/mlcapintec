@@ -1,4 +1,4 @@
-classdef SensitivityCalibration < mlcapintec.CapracCalibration
+classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
 	%% SENSITIVITYCALIBRATION  
 
 	%  $Revision$
@@ -13,20 +13,17 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
     
     properties (Dependent)
         indexBestActivity
-        trainedModelInvEff
-        trainedModelInvEff_mat % mat-filename
     end
     
     methods (Static)
-        function [this,h1,h2] = screenInvEfficiency(varargin)
-            %  @param filepath is dir;  default := getenv('CCIR_RAD_MEASUREMENTS_DIR').
-            %  @param filename is char; default := 'CCIRRadMeasurements 2017sep6.xlsx'.
+        function [this,h1,h2] = screenInvEfficiency()
+            %% displays a table of voluem, activity, predicted activity and efficiency^{-1}, and plots thereof.
             %  @return call this.trainModelInvEff if this.trainedModelInvEff is empty.
             %  @return this is the SensitivityCalibration.
             %  @return h1, h2 are figure handles to plots from "activity" to "predicted activity" and "efficiency^{-1}".
             
-            import mlcapintec.SensitivityCalibration;
-            this = SensitivityCalibration('filename', SensitivityCalibration.FILENAME, varargin{:});            
+            radMeas = mlpet.CCIRRadMeasurements.createByDate(datetime(2017,9,6));
+            this = mlcapintec.SensitivityCalibration(radMeas);
             tbl = table(this);
             
             disp(tbl);
@@ -39,24 +36,11 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
             xlabel('activity / Bq');
             ylabel('efficiency^{-1}');
             
-            if (isempty(this.trainedModelInvEff_))
-                this.trainedModelInvEff_ = this.trainModelInvEff;
-            end
+            this.selfCalibrate;
         end
     end
     
-	methods		
-        
-        %% GET 
-        
-        function g = get.trainedModelInvEff(this)
-            g = this.trainedModelInvEff_;
-        end
-        function g = get.trainedModelInvEff_mat(this)
-            g = fullfile( ...
-                mlpet.Resources.instance.matlabDrive, ...
-                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffSensitivity.mat');
-        end
+	methods
         function g = get.indexBestActivity(this)
             if (isempty(this.indexBestActivity_))                
                 da = this.wellCounter.Ge_68_Kdpm * (1e3/60) - this.BEST_ACTIVITY; % Bq
@@ -67,6 +51,25 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
         
         %%
         
+        function ie   = predictInvEff(this, varargin)
+            %% PREDICTINVEFF predicts efficiency^{-1} from activity in Bq.
+            %  @param activies is table || is numeric.
+            %  @return ie is numeric.
+            
+            ip = inputParser;
+            addParameter(ip, 'activity', @(x) istable(x) || isnumeric(x));
+            parse(ip, varargin{:});
+            a = ip.Results.activity;
+            
+            if (isnumeric(a))
+                a = ensureColVector(a);
+                a = table(a, 'VariableNames', {'activity'});
+            end
+            assert(istable(a));
+            assert(~isempty(this.trainedModelInvEff));
+            ie = this.trainedModelInvEff.predictFcn(a) ./ a.activity;
+            ie(ie < 0) = 0;
+        end
         function tbl  = table(this, varargin)
             %% TABLE
             %  @return table(..., 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:})
@@ -86,22 +89,28 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
             ie = pa ./ a;
             assert(all(~isnan(ie)), 'mlcapintec:ValueError', 'SensitivityCalibration.table');
             
-            tbl = table(v, a, pa, ie, 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:});
+            % stabilize very low activity using prediction 0 -> 0 with ie := 1
+            tbl = table([v;v(end)], [a;0], [pa;0], [ie;1], 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:});
         end
         
  		function this = SensitivityCalibration(varargin)
  			%% SENSITIVITYCALIBRATION
  			%  @param .
 
- 			this = this@mlcapintec.CapracCalibration(varargin{:});
+ 			this = this@mlpet.AbstractCalibration(varargin{:});
  		end
-    end 
+    end
     
     %% PROTECTED
     
     methods (Access = protected)
+        function g = getTrainedModelInvEff_mat__(~)
+            g = fullfile( ...
+                mlpet.Resources.instance.matlabDrive, ...
+                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffSensitivity.mat');
+        end
         function [trainedModel, validationRMSE] = trainRegressionLearner__(~, trainingData)
-            % [trainedModel, validationRMSE] = trainRegressionLearner__(trainingData)
+            % [trainedModel, validationRMSE] = trainRegressionModel(trainingData)
             % returns a trained regression model and its RMSE. This code recreates the
             % model trained in Regression Learner app. Use the generated code to
             % automate training the same model with new data, or to learn how to
@@ -127,7 +136,7 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
             %
             % For example, to retrain a regression model trained with the original data
             % set T, enter:
-            %   [trainedModel, validationRMSE] = trainRegressionLearner__(T)
+            %   [trainedModel, validationRMSE] = trainRegressionModel(T)
             %
             % To make predictions with the returned 'trainedModel' on new data T2, use
             %   yfit = trainedModel.predictFcn(T2)
@@ -136,7 +145,7 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
             % during training. For details, enter:
             %   trainedModel.HowToPredict
 
-            % Auto-generated by MATLAB on 08-Nov-2018 22:19:52
+            % Auto-generated by MATLAB on 20-Dec-2018 20:33:32
 
 
             % Extract predictors and response
@@ -145,8 +154,8 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
             inputTable = trainingData;
             predictorNames = {'activity'};
             predictors = inputTable(:, predictorNames);
-            response = inputTable.invEfficiency;
-            isCategoricalPredictor = [false]; %#ok<NASGU>
+            response = inputTable.predActivity;
+            isCategoricalPredictor = [false];
 
             % Train a regression model
             % This code specifies all the model options and trains the model.
@@ -154,7 +163,7 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
                 predictors, ...
                 response, ...
                 'BasisFunction', 'constant', ...
-                'KernelFunction', 'exponential', ...
+                'KernelFunction', 'squaredexponential', ...
                 'Standardize', true);
 
             % Create the result struct with predict function
@@ -173,15 +182,15 @@ classdef SensitivityCalibration < mlcapintec.CapracCalibration
             % model.
             inputTable = trainingData;
             predictorNames = {'activity'};
-            predictors = inputTable(:, predictorNames); %#ok<NASGU>
-            response = inputTable.invEfficiency; %#ok<NASGU>
-            isCategoricalPredictor = [false]; %#ok<NASGU>
+            predictors = inputTable(:, predictorNames);
+            response = inputTable.predActivity;
+            isCategoricalPredictor = [false];
 
             % Perform cross-validation
             partitionedModel = crossval(trainedModel.RegressionGP, 'KFold', 5);
 
             % Compute validation predictions
-            validationPredictions = kfoldPredict(partitionedModel); %#ok<NASGU>
+            validationPredictions = kfoldPredict(partitionedModel);
 
             % Compute validation RMSE
             validationRMSE = sqrt(kfoldLoss(partitionedModel, 'LossFun', 'mse'));
