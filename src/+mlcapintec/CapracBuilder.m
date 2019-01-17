@@ -1,4 +1,4 @@
-classdef CapracBuilder < mlpet.AbstractAifBuilder
+classdef CapracBuilder < handle & mlpet.InstrumentBuilder
 	%% CAPRACBUILDER  
 
 	%  $Revision$
@@ -53,12 +53,17 @@ classdef CapracBuilder < mlpet.AbstractAifBuilder
             this = this.buildNative;
             this.product_.invEfficiency = this.calibrator_.invEfficiency;
         end
+        
+        function this = readMeasurements(this)
+        end
+        function this = propagateEfficiencies(this)
+        end
 		  
  		function this = CapracBuilder(varargin)
  			%% CAPRACBUILDER  
             %  @param named datetime0 for target Caprac AIF.          
             
-            this = this@mlpet.AbstractAifBuilder(varargin{:}); 
+            this = this@mlpet.InstrumentBuilder(varargin{:}); 
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'datetime0', NaT, @isdatetime);

@@ -28,6 +28,8 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
         end
         function test_screenInvEfficencies(this)
             this.testObj.screenInvEfficiencies('refSource', this.refSources(1));
+            this.testObj.screenInvEfficiencies('refSource', this.refSources(2));
+            this.testObj.screenInvEfficiencies('refSource', this.refSources(3));
         end
         function test_screenInvEfficency(this)
             this.testObj.screenInvEfficiency('refSource', this.refSources(1));
@@ -71,8 +73,8 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
                 'Assessor', '', ...
                 'resource', 'RawData', ...
                 'tags', {'Head_MRAC_PET_5min'});
-            this.radMeas = CCIRRadMeasurements.CreateBySession(this.session);
-            this.refSources = InstrumentKit.CreateReferenceSources('session', this.session);
+            this.radMeas = CCIRRadMeasurements.createBySession(this.session);
+            this.refSources = mlpet.InstrumentKit.createReferenceSources('session', this.session);
  		end
 	end
 
