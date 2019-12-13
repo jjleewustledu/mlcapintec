@@ -84,14 +84,15 @@ classdef Caprac < mlpet.AbstractAifData
             addParameter(ip, 'manualData', [],   @(x) isa(x, 'mldata.IManualMeasurements'));
             addParameter(ip, 'invEfficiency', 1, @isnumeric);
             addParameter(ip, 'aifTimeShift', 0,  @isnumeric);
-            parse(ip, varargin{:});            
-            this.manualData_ = ip.Results.manualData;
+            parse(ip, varargin{:});   
+            ipr = ip.Results;
+            
+            this.manualData_ = ipr.manualData;
             this.timingData_ = mldata.TimingData( ...
                 'times', this.manualData_.timingData.times, ...
                 'dt', this.manualData_.timingData.dt); 
-            this.invEfficiency_ = ip.Results.invEfficiency;
-            this = this.shiftTimes(ip.Results.aifTimeShift); % @deprecated  
-            
+            this = this.shiftTimes(ipr.aifTimeShift); % @deprecated            
+            this.invEfficiency_ = ipr.invEfficiency;
             this = this.updateActivities;
             this = this.updatePropertyDecayCorrection;
             this.isDecayCorrected_ = false;
@@ -112,9 +113,11 @@ classdef Caprac < mlpet.AbstractAifData
             addOptional( ip, 'aTable', this.manualData_.fdg, @istable);
             addParameter(ip, 'tracerName', '', @ischar);
             parse(ip, varargin{:});
-            TIMEDRAWN_Hh_mm_ss = ensureDatetime(ip.Results.aTable.TIMEDRAWN_Hh_mm_ss);
-            Ge_68_Kdpm         = ip.Results.aTable.Ge_68_Kdpm;
-            MASSSAMPLE_G       = ip.Results.aTable.MASSSAMPLE_G;  
+            ipr = ip.Results;
+            
+            TIMEDRAWN_Hh_mm_ss = ensureDatetime(ipr.aTable.TIMEDRAWN_Hh_mm_ss);
+            Ge_68_Kdpm         = ipr.aTable.Ge_68_Kdpm;
+            MASSSAMPLE_G       = ipr.aTable.MASSSAMPLE_G;  
             
             try
                 tf = ~isnat(TIMEDRAWN_Hh_mm_ss) & ...
@@ -141,10 +144,10 @@ classdef Caprac < mlpet.AbstractAifData
                     end
                 end
             end
-            if (~isempty(ip.Results.tracerName))
-                tf = tf & strcmp(ip.Results.aTable, ip.Results.tracerName);
+            if (~isempty(ipr.tracerName))
+                tf = tf & strcmp(ipr.aTable, ipr.tracerName);
             end
-            tf = tf & strcmp(ip.Results.aTable.TRACER, this.TRACER);
+            tf = tf & strcmp(ipr.aTable.TRACER, this.TRACER);
         end
         function t    = measurementsTable2DatetimesDrawn(this, varargin)
             ip = inputParser;
