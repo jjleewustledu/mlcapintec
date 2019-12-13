@@ -93,10 +93,12 @@ classdef Caprac < mlpet.AbstractAifData
                 'dt', this.manualData_.timingData.dt); 
             this = this.shiftTimes(ipr.aifTimeShift); % @deprecated            
             this.invEfficiency_ = ipr.invEfficiency;
+            this = this.updateTimingData;
             this = this.updateActivities;
-            this = this.updatePropertyDecayCorrection;
             this.isDecayCorrected_ = false;
             this.isPlasma = false;
+            
+            this = this.updateDecayCorrection;
         end        
     end
     
@@ -216,7 +218,6 @@ classdef Caprac < mlpet.AbstractAifData
                 sa = ensureRowVector(sa);
         end
         function this = updateActivities(this)
-            this = this.updateTimingData;
             this.decayCorrection_ = mlpet.DecayCorrection.factoryFor(this);
             this.counts_ = this.measurementsTable2counts;       
             this.specificActivity_ = this.invEfficiency_ * this.measurementsTable2specificActivity;  
