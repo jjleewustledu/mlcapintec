@@ -1,4 +1,4 @@
-classdef CapracBuilder < handle & mlpet.InstrumentBuilder
+classdef CapracBuilder < handle & mlpet.DeviceBuilder
 	%% CAPRACBUILDER  
 
 	%  $Revision$
@@ -63,7 +63,7 @@ classdef CapracBuilder < handle & mlpet.InstrumentBuilder
  			%% CAPRACBUILDER  
             %  @param named datetime0 for target Caprac AIF.          
             
-            this = this@mlpet.InstrumentBuilder(varargin{:}); 
+            this = this@mlpet.DeviceBuilder(varargin{:}); 
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'datetime0', NaT, @isdatetime);
