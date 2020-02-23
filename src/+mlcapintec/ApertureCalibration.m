@@ -1,4 +1,4 @@
-classdef ApertureCalibration < handle & mlpet.AbstractCalibration
+classdef ApertureCalibration < handle & mlcapintec.AbstractCalibration
 	%% APERTURECALIBRATION  
 
 	%  $Revision$
@@ -80,7 +80,7 @@ classdef ApertureCalibration < handle & mlpet.AbstractCalibration
  		function this = ApertureCalibration(varargin)
  			%% APERTURECALIBRATION
 
-            this = this@mlpet.AbstractCalibration(varargin{:});
+            this = this@mlcapintec.AbstractCalibration(varargin{:});
  		end
     end 
     

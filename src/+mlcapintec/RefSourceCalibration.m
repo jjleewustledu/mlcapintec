@@ -1,4 +1,4 @@
-classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
+classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
 	%% REFSOURCECALIBRATION  
 
 	%  $Revision$
@@ -178,7 +178,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
  			%% REFSOURCECALIBRATION
  			%  @param isotope \in {'[68Ge]' '[22Na]' '[137Cs]'}.
 
- 			this = this@mlpet.AbstractCalibration(varargin{:});
+ 			this = this@mlcapintec.AbstractCalibration(varargin{:});
             ip = inputParser;
             ip.KeepUnmatched = true;
             addRequired(ip, 'radMeas', @(x) isa(x, 'mlpet.RadMeasurements'));

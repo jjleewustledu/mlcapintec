@@ -1,4 +1,4 @@
-classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
+classdef SensitivityCalibration < handle & mlcapintec.AbstractCalibration
 	%% SENSITIVITYCALIBRATION  
 
 	%  $Revision$
@@ -97,7 +97,7 @@ classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
  			%% SENSITIVITYCALIBRATION
  			%  @param .
 
- 			this = this@mlpet.AbstractCalibration(varargin{:});
+ 			this = this@mlcapintec.AbstractCalibration(varargin{:});
  		end
     end
     
