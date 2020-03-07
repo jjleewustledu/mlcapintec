@@ -18,6 +18,9 @@ classdef Caprac < mlpet.AbstractAifData
         invEfficiency % device-level efficiency for activities determined by cross-calibration
     end
     
+    methods (Static)
+    end
+    
     methods      
         
         %% GET/SET

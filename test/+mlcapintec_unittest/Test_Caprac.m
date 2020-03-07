@@ -14,12 +14,12 @@ classdef Test_Caprac < matlab.unittest.TestCase
  	
 
 	properties
-        doseAdminDatetimeFDG = datetime(2016,9,23,12,43,52, 'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone);
+        doseAdminDatetimeFDG = datetime(2016,9,23,12,43,52, 'TimeZone', 'America/Chicago');
         ccirRadMeasurementsDir = fullfile(getenv('HOME'), 'Documents/private')
         mand
  		registry
         sessd
-        sessp = '/data/nil-bluearc/raichle/PPGdata/jjlee2/HYGLY28'
+        sessp = 'CCIR_00754/ses-E191506/FDG_DT20160923124357.000000-Converted-AC'
  		testObj
  	end
 
@@ -83,12 +83,8 @@ classdef Test_Caprac < matlab.unittest.TestCase
 		function setupCaprac(this)
  			import mlcapintec.*;                    
             setenv('CCIR_RAD_MEASUREMENTS_DIR', this.ccirRadMeasurementsDir);
-            this.sessd = mlraichle.SessionData( ...
-                'studyData', mlraichle.StudyData', ...
-                'sessionPath', this.sessp, ...
-                'tracer', '18F');
-            this.mand = mlsiemens.XlsxObjScanData( ...
-                'sessionData', this.sessd);
+            this.sessd = mlraichle.SessionData.create(this.sessp);
+            this.mand = mlraichle.CCIRRadMeasurements.createBySession(this.sessd);
  			this.testObj_ = Caprac( ...
                 'fqfilename', this.sessd.CCIRRadMeasurements, ...
                 'sessionData', this.sessd, ...

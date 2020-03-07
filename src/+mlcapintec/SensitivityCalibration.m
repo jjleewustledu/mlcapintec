@@ -1,4 +1,4 @@
-classdef SensitivityCalibration < handle & mlcapintec.AbstractCalibration
+classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
 	%% SENSITIVITYCALIBRATION  
 
 	%  $Revision$
@@ -7,109 +7,121 @@ classdef SensitivityCalibration < handle & mlcapintec.AbstractCalibration
  	%% It was developed on Matlab 9.4.0.813654 (R2018a) for MACI64.  Copyright 2018 John Joowon Lee.
  	
 	properties (Constant)
- 		BEST_ACTIVITY = 1e6/60 % Bq
-        FILENAME = 'CCIRRadMeasurements 2017sep6.xlsx'
+ 		BEST_ACTIVITY = 1e3 % kdpm
+        BEST_DATETIME = datetime(2017,9,6)
     end
     
     properties (Dependent)
         indexBestActivity
+        invEfficiency
     end
     
     methods (Static)
-        function [this,h1,h2] = screenInvEfficiency()
-            %% displays a table of voluem, activity, predicted activity and efficiency^{-1}, and plots thereof.
-            %  @return call this.trainModelInvEff if this.trainedModelInvEff is empty.
-            %  @return this is the SensitivityCalibration.
-            %  @return h1, h2 are figure handles to plots from "activity" to "predicted activity" and "efficiency^{-1}".
+        function mat = buildCalibration()
+            %% uses regressionLearner, decay-in-place data from 2017sep6
+            %  @return mat is tranedModelInveff_sensitivity.mat
             
-            radMeas = mlpet.CCIRRadMeasurements.createByDate(datetime(2017,9,6));
-            this = mlcapintec.SensitivityCalibration(radMeas);
-            tbl = table(this);
+            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.SensitivityCalibration.BEST_DATETIME);
+            this = mlcapintec.SensitivityCalibration(rm);
             
-            disp(tbl);
-            h1 = figure;
-            plot(tbl.activity, tbl.predActivity, 'o', 'LineStyle', 'none');
-            xlabel('activity / Bq');
-            ylabel('predicted activity / Bq');
-            h2 = figure;
-            plot(tbl.activity, tbl.invEfficiency, 'o', 'LineStyle', 'none');
-            xlabel('activity / Bq');
-            ylabel('efficiency^{-1}');
+            datapath = fullfile(MatlabRegistry.instance.srcroot, 'mlcapintec', 'data', '');            
+            mat = fullfile(datapath, 'trainedModelInvEff_sensitivity.mat');
+            if isfile(mat)
+                plot(this)
+                return
+            end
             
-            this.selfCalibrate;
+            tbl = table(this, 'model', 'regressionLearner');
+            tbl.Properties.Description = 'from mlcapintec.SensitivityCalibration.buildCalibration()';
+            save(fullfile(datapath, 'decay_in_place2.mat'), 'tbl')   
+            ge68 = tbl.ge68;
+            inveff = tbl.inveff;
+            trainedModelInvEff_sensitivity = this.trainRegressionModel(table(ge68, inveff));
+            save(fullfile(datapath, 'trainedModelInvEff_sensitivity.mat'), 'trainedModelInvEff_sensitivity');
+        end
+        function this = createBySession(varargin)
+            %% CREATEBYSESSION
+            %  @param required sessionData is an mlpipeline.ISessionData.
+            %  See also:  mlpet.CCIRRadMeasurements.createBySession().
+            
+            rad = mlpet.CCIRRadMeasurements.createBySession(varargin{:});
+            this = mlcapintec.SensitivityCalibration.createByRadMeasurements(rad);
+        end
+        function this = createByRadMeasurements(rad)
+            %% CREATEBYRADMEASUREMENTS
+ 			%  @param required radMeasurements is mlpet.CCIRRadMeasurements.
+
+            assert(isa(rad, 'mlpet.CCIRRadMeasurements'))
+            this = mlcapintec.SensitivityCalibration(rad);
+        end 
+        function inveff = invEfficiencyf(varargin)
+            %% INVEFFICIENCYF is derived from studies of aq. [18F]DG on 2017sep6.
+            %  @param required ge68 in kdpm.
+            %  @return inveff:  predicted := inveff .* measured.
+            
+            ip = inputParser;
+            addRequired(ip, 'ge68', @isnumeric) % kdpm
+            parse(ip, varargin{:})
+            
+            srcroot = MatlabRegistry.instance.srcroot;
+            obj = load(fullfile(srcroot, 'mlcapintec', 'data', 'trainedModelInvEff_sensitivity.mat')); 
+            ge68 = ip.Results.ge68;
+            T = table(ge68);
+            inveff = obj.trainedModelInvEff_sensitivity.predictFcn(T);
         end
     end
     
 	methods
+        
+        %% GET
+        
         function g = get.indexBestActivity(this)
             if (isempty(this.indexBestActivity_))                
-                da = this.wellCounter.Ge_68_Kdpm * (1e3/60) - this.BEST_ACTIVITY; % Bq
+                da = this.radMeasurements.wellCounter.Ge_68_Kdpm - this.BEST_ACTIVITY; % kdpm
                 [~,this.indexBestActivity_] = min(abs(da));
             end
             g = this.indexBestActivity_;
+        end 
+        function g = get.invEfficiency(~) %#ok<STOUT>
+            error('mlcapintec:RuntimeError', 'SensitivityCalibration.get.invEfficiency:  use infEfficiencyf(mass)')
         end
         
         %%
         
-        function ie   = predictInvEff(this, varargin)
-            %% PREDICTINVEFF predicts efficiency^{-1} from activity in Bq.
-            %  @param activies is table || is numeric.
-            %  @return ie is numeric.
+        function [h1,h2] = plot(this, varargin)
+            %% PLOT label activity vs. activity; activity vs. efficiency^{-1}.
+            %  @return h1, h2 are figure handles.
+                      
+            tbl = table(this, varargin{:});
+            label_ge68 = tbl.label_ge68;
+            ge68 = tbl.ge68;
+            inveff = tbl.inveff;            
             
-            ip = inputParser;
-            addParameter(ip, 'activity', @(x) istable(x) || isnumeric(x));
-            parse(ip, varargin{:});
-            a = ip.Results.activity;
-            
-            if (isnumeric(a))
-                a = ensureColVector(a);
-                a = table(a, 'VariableNames', {'activity'});
-            end
-            assert(istable(a));
-            assert(~isempty(this.trainedModelInvEff));
-            ie = this.trainedModelInvEff.predictFcn(a) ./ a.activity;
-            ie(ie < 0) = 0;
+            figure; 
+            h1 = plot(label_ge68, ge68, '+');
+            xlabel('label activity [^{18}F]DG / (kdpm/g)'); ylabel('activity [^{18}F]DG / (kdpm/g)');
+            figure; 
+            h2 = plot(ge68, inveff, '+');
+            xlabel('activity [^{18}F]DG / (kdpm/g)'); ylabel('efficiency^{-1}');
         end
         function tbl  = table(this, varargin)
             %% TABLE
-            %  @return table(..., 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:})
-            %  for decaying activity and invEfficiency := activity / predActivity; 
+            %  @param varargin is passed to this.invEfficiencyf().
+            %  @return table(mass, ge68, label_ge68, dtime, inveff).
             
-            import mlcapintec.SensitivityCalibration;
-            import mlpet.Radionuclides.halflifeOf;
-            v  = this.wellCounter.MassSample_G / SensitivityCalibration.WATER_DENSITY; % mL
-            t  = this.wellCounter.TIMECOUNTED_Hh_mm_ss; % datetime
-            a  = this.wellCounter.Ge_68_Kdpm * (1e3/60); % Bq
-            hl = seconds(halflifeOf('[18F]')); % duration            
+            well = this.radMeasurements.wellCounter;
             
-            vbest = v(this.indexBestActivity);
-            abest = a(this.indexBestActivity);
-            tbest = t(this.indexBestActivity); % datetime
-            pa = (v/vbest) .* abest .* 2.^((tbest - t)/hl); % Bq, decay-adjusted
-            ie = pa ./ a;
-            assert(all(~isnan(ie)), 'mlcapintec:ValueError', 'SensitivityCalibration.table');
+            dtime = seconds(well.TIMECOUNTED_Hh_mm_ss - well.TIMECOUNTED_Hh_mm_ss(this.indexBestActivity));
+            mass  = well.MassSample_G;
+            ge68  = well.Ge_68_Kdpm;
+            ge68  = mlcapintec.ApertureCalibration.invEfficiencyf(mass, varargin{:}) .* ge68;
+            label_ge68 = ge68(this.indexBestActivity) * (mass/mass(this.indexBestActivity)) .* 2.^(-dtime/6586.272);
+            inveff = label_ge68 ./ ge68;  
             
-            % stabilize very low activity using prediction 0 -> 0 with ie := 1
-            tbl = table([v;v(end)], [a;0], [pa;0], [ie;1], 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:});
+            tbl = table(mass, ge68, label_ge68, dtime, inveff);
+            tbl.Properties.VariableUnits = {'g' 'kdpm' 'kdpm' 's', ''};
         end
-        
- 		function this = SensitivityCalibration(varargin)
- 			%% SENSITIVITYCALIBRATION
- 			%  @param .
-
- 			this = this@mlcapintec.AbstractCalibration(varargin{:});
- 		end
-    end
-    
-    %% PROTECTED
-    
-    methods (Access = protected)
-        function g = getTrainedModelInvEff_mat__(~)
-            g = fullfile( ...
-                mlpipeline.ResourcesRegistry.instance().matlabDrive, ...
-                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffSensitivity.mat');
-        end
-        function [trainedModel, validationRMSE] = trainRegressionLearner__(~, trainingData)
+        function [trainedModel, validationRMSE] = trainRegressionModel(~, trainingData)
             % [trainedModel, validationRMSE] = trainRegressionModel(trainingData)
             % returns a trained regression model and its RMSE. This code recreates the
             % model trained in Regression Learner app. Use the generated code to
@@ -144,19 +156,19 @@ classdef SensitivityCalibration < handle & mlcapintec.AbstractCalibration
             % T2 must be a table containing at least the same predictor columns as used
             % during training. For details, enter:
             %   trainedModel.HowToPredict
-
-            % Auto-generated by MATLAB on 20-Dec-2018 20:33:32
-
-
+            
+            % Auto-generated by MATLAB on 24-Feb-2020 02:24:14
+            
+            
             % Extract predictors and response
             % This code processes the data into the right shape for training the
             % model.
             inputTable = trainingData;
-            predictorNames = {'activity'};
+            predictorNames = {'ge68'};
             predictors = inputTable(:, predictorNames);
-            response = inputTable.predActivity;
+            response = inputTable.inveff;
             isCategoricalPredictor = [false];
-
+            
             % Train a regression model
             % This code specifies all the model options and trains the model.
             regressionGP = fitrgp(...
@@ -165,36 +177,43 @@ classdef SensitivityCalibration < handle & mlcapintec.AbstractCalibration
                 'BasisFunction', 'constant', ...
                 'KernelFunction', 'squaredexponential', ...
                 'Standardize', true);
-
+            
             % Create the result struct with predict function
             predictorExtractionFcn = @(t) t(:, predictorNames);
             gpPredictFcn = @(x) predict(regressionGP, x);
             trainedModel.predictFcn = @(x) gpPredictFcn(predictorExtractionFcn(x));
-
+            
             % Add additional fields to the result struct
-            trainedModel.RequiredVariables = {'activity'};
+            trainedModel.RequiredVariables = {'ge68'};
             trainedModel.RegressionGP = regressionGP;
-            trainedModel.About = 'This struct is a trained model exported from Regression Learner R2018a.';
+            trainedModel.About = 'This struct is a trained model exported from Regression Learner R2019b.';
             trainedModel.HowToPredict = sprintf('To make predictions on a new table, T, use: \n  yfit = c.predictFcn(T) \nreplacing ''c'' with the name of the variable that is this struct, e.g. ''trainedModel''. \n \nThe table, T, must contain the variables returned by: \n  c.RequiredVariables \nVariable formats (e.g. matrix/vector, datatype) must match the original training data. \nAdditional variables are ignored. \n \nFor more information, see <a href="matlab:helpview(fullfile(docroot, ''stats'', ''stats.map''), ''appregression_exportmodeltoworkspace'')">How to predict using an exported model</a>.');
-
+            
             % Extract predictors and response
             % This code processes the data into the right shape for training the
             % model.
             inputTable = trainingData;
-            predictorNames = {'activity'};
+            predictorNames = {'ge68'};
             predictors = inputTable(:, predictorNames);
-            response = inputTable.predActivity;
+            response = inputTable.inveff;
             isCategoricalPredictor = [false];
-
+            
             % Perform cross-validation
             partitionedModel = crossval(trainedModel.RegressionGP, 'KFold', 5);
-
+            
             % Compute validation predictions
             validationPredictions = kfoldPredict(partitionedModel);
-
+            
             % Compute validation RMSE
             validationRMSE = sqrt(kfoldLoss(partitionedModel, 'LossFun', 'mse'));
         end
+        
+ 		function this = SensitivityCalibration(varargin)
+ 			%% SENSITIVITYCALIBRATION
+ 			%  @param .
+
+ 			this = this@mlpet.AbstractCalibration(varargin{:});
+ 		end
     end
     
     %% PRIVATE

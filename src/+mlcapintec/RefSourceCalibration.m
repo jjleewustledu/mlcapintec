@@ -1,4 +1,4 @@
-classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
+classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
 	%% REFSOURCECALIBRATION  
 
 	%  $Revision$
@@ -6,17 +6,177 @@ classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlcapintec/src/+mlcapintec.
  	%% It was developed on Matlab 9.4.0.813654 (R2018a) for MACI64.  Copyright 2018 John Joowon Lee.
  	
-	properties (Constant)
+    properties (Constant)        
+        BEST_DATETIME = datetime(2017,9,6)
+        Na22_PREDICTED_MINUS_Na22_MEASURED = 0.658878 % kdpm, from [22Na] reference source
+        Ge68_PREDICTED_OVER_Ge68_MEASURED = 0.979873 % from [68Ge] reference source
+
+        FILENAME = 'CCIRRadMeasurements 2018oct5.xlsx'  % 68Ge, 22Na, 137Cs        
        %FILENAME = 'CCIRRadMeasurements 2018sep12.xlsx' % 22Na
-        FILENAME = 'CCIRRadMeasurements 2018oct5.xlsx' % 68Ge, 22N, 137Cs
     end
 
     properties (Dependent)
         activity
+        invEfficiency
         refSource
     end
     
     methods (Static)
+        function mat = buildCalibration()
+            mat = [];
+        end   
+        function this = createBySession(varargin)
+            %% CREATEBYSESSION
+            %  @param required sessionData is an mlpipeline.ISessionData.
+            %  See also:  mlpet.CCIRRadMeasurements.createBySession().
+            
+            rad = mlpet.CCIRRadMeasurements.createBySession(varargin{:});
+            this = mlcapintec.RefSourceCalibration.createByRadMeasurements(rad);
+        end
+        function this = createByRadMeasurements(rad)
+            %% CREATEBYRADMEASUREMENTS
+ 			%  @param required radMeasurements is mlpet.CCIRRadMeasurements.
+
+            assert(isa(rad, 'mlpet.CCIRRadMeasurements'))
+            this = mlcapintec.RefSourceCalibration(rad);
+        end      
+        function inveff = invEfficiencyf()
+            inveff = mlcapintec.RefSourceCalibration.Ge68_PREDICTED_OVER_Ge68_MEASURED;
+        end
+        function plot_datetime2RefSourceDeviation(ref, rms)
+            tra = sprintf('[%s]', ref.isotope);
+            datetimeMeas = [];
+            activityMeas = [];
+            activityPred = [];
+            fileprefixes = {};
+            for r = rms
+                ccir = r{1};
+                wc = ccir.wellCounter;
+                time = wc.TIMECOUNTED_Hh_mm_ss(strcmp(wc.TRACER, tra));
+                time = time(~isnat(time));
+                if lstrfind(lower(tra), 'cs')
+                    meas = wc.CF_Kdpm(strcmp(wc.TRACER, tra));
+                else
+                    meas = wc.Ge_68_Kdpm(strcmp(wc.TRACER, tra));
+                end
+                meas = meas(~isnan(meas));
+                pred = ref.predictedActivity(datetime(ccir), 'kdpm')*ones(size(meas));
+                datetimeMeas = [datetimeMeas; time];
+                activityMeas = [activityMeas; meas]; %#ok<*AGROW>
+                activityPred = [activityPred; pred];
+                fileprefixes = [fileprefixes; repmat({ccir.fileprefix}, size(meas))];
+            end
+            
+            figure
+            plot(datetimeMeas, activityMeas - activityPred, ':o')
+            title(sprintf('[%s] ref source measurement stability on Caprac over time', ref.isotope))
+            xlabel('datetime')
+            ylabel('(measured activity - predicted activity) / kdpm')
+           
+            for i = 1:length(datetimeMeas)
+                fprintf('datetime -> %s\t fileprefix -> %s\t meas - pred -> %g kdpm\t meas/pred -> %g\n', ...
+                    datetimeMeas(i), fileprefixes{i}, activityMeas(i) - activityPred(i), activityMeas(i)/activityPred(i))
+            end
+            
+            fprintf('mean([activityMeas   activityPred]) -> %g kdpm\n', mean([activityMeas'   activityPred']))
+            fprintf('mean( activityMeas - activityPred ) -> %g kdpm\n', mean( activityMeas -  activityPred  ))
+            fprintf(' std( activityMeas - activityPred ) -> %g kdpm\n',  std( activityMeas -  activityPred  ))
+            fprintf('mean( activityMeas / activityPred ) -> %g     \n', mean( activityMeas ./ activityPred  ))
+            fprintf(' std( activityMeas / activityPred ) -> %g     \n',  std( activityMeas ./ activityPred  ))
+            fprintf('                                  N -> %i\n',    length( activityMeas))
+            fprintf('                           duration -> %g\n',      days(max(datetimeMeas) - min(datetimeMeas)))
+        end
+        function plotRefSourceStability(isotope)
+            %% ref measurement datetimes are enumerated in file 'cross-calibrations_20190817.xlsx'
+            
+            import mlpet.ReferenceSource            
+            tz = 'America/Chicago';
+            switch isotope
+                case '137Cs'
+                    ref = ReferenceSource( ...
+                        'isotope', '137Cs', ...
+                        'activity', 500, ...
+                        'activityUnits', 'nCi', ...
+                        'sourceId', '1231-8-87', ...
+                        'refDate', datetime(2007,4,1, 'TimeZone', tz));                   
+                case '22Na'
+                    ref = ReferenceSource( ...
+                        'isotope', '22Na', ...
+                        'activity', 101.4, ...
+                        'activityUnits', 'nCi', ...
+                        'sourceId', '1382-54-1', ...
+                        'refDate', datetime(2009,8,1, 'TimeZone', tz));
+                case '68Ge'
+                    ref = ReferenceSource( ...
+                        'isotope', '68Ge', ...
+                        'activity', 101.3, ...
+                        'activityUnits', 'nCi', ...
+                        'sourceId', '1932-53', ...
+                        'refDate', datetime(2017,11,1, 'TimeZone', tz), ...
+                        'productCode', 'MGF-068-R3');
+                otherwise
+                    error('mlcapintec:NotImplementedError', ...
+                        'CapracCalibration.plotRefSourceStability.isotope->%s', isotope)
+            end            
+            rms = {};
+            for g = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'CCIRRadMeasurements*.xlsx'))
+                rm = mlpet.CCIRRadMeasurements.createByFilename(g{1});
+                if lstrfind(rm.wellCounter.TRACER, isotope) && all(~isnan(rm.wellCounter.CF_Kdpm))
+                    rms = [rms {rm}];
+                end
+            end            
+                        
+            mlcapintec.RefSourceCalibration.plot_datetime2RefSourceDeviation(ref, rms)
+        end
+    end
+    
+	methods 
+        
+        %% GET 
+        
+        function g = get.activity(this)
+            switch (this.refSource.isotope)
+                case {'68Ge' '22Na'}
+                    g = this.radMeasurements.wellCounter.Ge_68_Kdpm * (1e3/60); % Bq
+                case '137Cs'
+                    g = this.radMeasurements.wellCounter.CF_Kdpm * (1e3/60); % Bq
+                otherwise
+                    error('mlcapintec:ValueError', 'RefSourceCalibration.get.activity for %s', this.refSource.isotope);
+            end
+        end
+        function g = get.invEfficiency(~)
+            g = mlcapintec.RefSourcCalibration.invEfficiencyf();
+        end
+        function g = get.refSource(this)
+            g = this.refSource_;
+        end
+        
+        %%
+		  
+ 		function this = RefSourceCalibration(varargin)
+ 			%% REFSOURCECALIBRATION
+ 			%  @param isotope \in {'[68Ge]' '[22Na]' '[137Cs]'}.
+
+ 			this = this@mlpet.AbstractCalibration(varargin{:});
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'radMeas', @(x) isa(x, 'mlpet.RadMeasurements'));
+            addParameter(ip, 'refSource', [], @(x) isa(x, 'mlpet.ReferenceSource'));
+            parse(ip, varargin{:});  
+            this.refSource_ = ip.Results.refSource;
+ 		end
+    end 
+    
+    %% PRIVATE
+    
+    properties (Access = private)
+        refSource_
+        tableCache_
+    end
+    
+    %% HIDDEN, DEPRECATED
+    
+    methods (Hidden, Static)
         function [this,h1,h2] = screenInvEfficiencies(varargin)
             %  @param filepath is dir;  default := getenv('CCIR_RAD_MEASUREMENTS_DIR').
  			%  @param refSource is mlpet.ReferenceSource.
@@ -27,7 +187,7 @@ classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'filepath', getenv('CCIR_RAD_MEASUREMENTS_DIR'), @isdir);
+            addParameter(ip, 'filepath', getenv('CCIR_RAD_MEASUREMENTS_DIR'), @isfolder);
             addParameter(ip, 'makeplot', true, @islogical);
             addParameter(ip, 'trainmodel', false, @islogical);
             parse(ip);
@@ -38,7 +198,7 @@ classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
                 try
                     radMeas_ = mlpet.CCIRRadMeasurements.createByFilename(fullfile(ip.Results.filepath, xlsx.fns{x}));
                     this_ = mlcapintec.RefSourceCalibration(radMeas_, varargin{:});
-                    tbl = vertcat(tbl, table(this_)); %#ok<AGROW>
+                    tbl = vertcat(tbl, table(this_));
                 catch ME
                     dispwarning(ME);
                 end
@@ -76,11 +236,11 @@ classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
             
             import mlcapintec.RefSourceCalibration;
             ip = inputParser;
-            addParameter(ip, 'filename', RefSourceCalibration.FILENAME, @ischar);
+            addParameter(ip, 'date', RefSourceCalibration.BEST_DATETIME, @ischar);
             addParameter(ip, 'makeplot', true, @islogical);
             addParameter(ip, 'trainmodel', false, @islogical);
             parse(ip);
-            radMeas = mlpet.CCIRRadMeasurements.createByFilename(ip.Results.filename);
+            radMeas = mlpet.CCIRRadMeasurements.createByDate(ip.Results.date);
             this = RefSourceCalibration(radMeas, varargin{:});            
             tbl = table(this);  
             
@@ -104,93 +264,7 @@ classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
         end
     end
     
-	methods 
-        
-        %% GET        
-        
-        function g = get.activity(this)
-            switch (this.refSource.isotope)
-                case {'68Ge' '22Na'}
-                    g = this.wellCounter.Ge_68_Kdpm * (1e3/60); % Bq
-                case '137Cs'
-                    g = this.wellCounter.CF_Kdpm * (1e3/60); % Bq
-                otherwise
-                    error('mlcapintec:ValueError', 'RefSourceCalibration.get.activity for %s', this.refSource.isotope);
-            end
-        end
-        function g = get.refSource(this)
-            g = this.refSource_;
-        end
-        
-        %%
-        
-        function ie   = predictInvEff(this, varargin)
-            %% PREDICTINVEFF predicts efficiency^{-1} from activity in Bq.
-            %  @param activies is table || is numeric.
-            %  @return ie is numeric.
-            
-            ip = inputParser;
-            addRequired(ip, 'sa', @(x) istable(x) || isnumeric(x));
-            parse(ip, varargin{:});
-            sa = ip.Results.sa;
-            
-            if (isnumeric(sa))
-                sa = ensureColVector(sa);
-                sa = table(sa);
-            end
-            assert(istable(sa));
-            sz = size(sa.(sa.Properties.VariableNames{1}));
-            ie = this.trainedModelInvEff*ones(sz);
-        end
-        function this = selfCalibrate(this)
-        end
-        function tbl  = table(this, varargin)
-            %% TABLE
-            %  @return table(..., 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:})
-            %  for decaying activity and invEfficiency := activity / predActivity; 
-            
-            if (~isempty(this.tableCache_))
-                tbl = this.tableCache_;
-                return
-            end
-            if (isempty(this.refSource))
-                tbl = [];
-                return
-            end
-            
-            import mlcapintec.RefSourceCalibration;
-            import mlpet.Radionuclides.halflifeOf;
-            tr  = this.wellCounter.TRACER;
-            sel = strcmp(tr, sprintf('[%s]', this.refSource.isotope));
-            
-            t   = this.wellCounter.TIMECOUNTED_Hh_mm_ss(sel); % datetime
-            a   = this.activity(sel); % Bq            
-            pa  = this.refSource.predictedActivity(t, 'Bq'); % Bq, decay-adjusted
-            ie  = pa ./ a;
-            assert(all(~isnan(ie)), 'mlcapintec:ValueError', 'RefSourceCalibration.table');            
-            tbl = table(t, a, pa, ie, 'VariableNames', {'datetime' 'activity' 'predActivity' 'invEfficiency'}, varargin{:});
-        end
-        function mdl  = trainModelInvEff(~)
-            mdl = [];
-        end
-		  
- 		function this = RefSourceCalibration(varargin)
- 			%% REFSOURCECALIBRATION
- 			%  @param isotope \in {'[68Ge]' '[22Na]' '[137Cs]'}.
-
- 			this = this@mlcapintec.AbstractCalibration(varargin{:});
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addRequired(ip, 'radMeas', @(x) isa(x, 'mlpet.RadMeasurements'));
-            addParameter(ip, 'refSource', [], @(x) isa(x, 'mlpet.ReferenceSource'));
-            parse(ip, varargin{:});  
-            this.refSource_ = ip.Results.refSource;
- 		end
-    end 
-    
-    %% PROTECTED
-    
-    methods (Access = protected) 
+    methods (Hidden) 
         function g = getTrainedModelInvEff__(this)
             %  invEfficiency 137Cs:  mean -> 1.20775,  std -> 0.00341237
             %  invEfficiency 22Na:   mean -> 1.02843,  std -> 0.019226
@@ -211,14 +285,33 @@ classdef RefSourceCalibration < handle & mlcapintec.AbstractCalibration
             g = fullfile( ...
                 mlpipeline.ResourcesRegistry.instance().matlabDrive, ...
                 'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffRefSource.mat');
-        end
-    end
-    
-    %% PRIVATE
-    
-    properties (Access = private)
-        refSource_
-        tableCache_
+        end        
+        function tbl  = table(this, varargin)
+            %% TABLE
+            %  @return table(..., 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:})
+            %  for decaying activity and invEfficiency := activity / predActivity; 
+            
+            if (~isempty(this.tableCache_))
+                tbl = this.tableCache_;
+                return
+            end
+            if (isempty(this.refSource))
+                tbl = [];
+                return
+            end
+            
+            import mlcapintec.RefSourceCalibration;
+            import mlpet.Radionuclides.halflifeOf;
+            tr  = this.radMeasurements.wellCounter.TRACER;
+            sel = strcmp(tr, sprintf('[%s]', this.refSource.isotope));
+            
+            t   = this.radMeasurements.wellCounter.TIMECOUNTED_Hh_mm_ss(sel); % datetime
+            a   = this.activity(sel); % Bq            
+            pa  = this.refSource.predictedActivity(t, 'Bq'); % Bq, decay-adjusted
+            ie  = pa ./ a;
+            assert(all(~isnan(ie)), 'mlcapintec:ValueError', 'RefSourceCalibration.table');            
+            tbl = table(t, a, pa, ie, 'VariableNames', {'datetime' 'activity' 'predActivity' 'invEfficiency'}, varargin{:});
+        end 
     end
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy

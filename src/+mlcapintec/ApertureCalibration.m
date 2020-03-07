@@ -1,4 +1,4 @@
-classdef ApertureCalibration < handle & mlcapintec.AbstractCalibration
+classdef ApertureCalibration < handle & mlpet.AbstractCalibration
 	%% APERTURECALIBRATION  
 
 	%  $Revision$
@@ -7,96 +7,164 @@ classdef ApertureCalibration < handle & mlcapintec.AbstractCalibration
  	%% It was developed on Matlab 9.4.0.813654 (R2018a) for MACI64.  Copyright 2018 John Joowon Lee.
  	
 	properties (Constant)
-        FILENAME = 'CCIRRadMeasurements 2017dec6.xlsx'
+        BEST_DATETIME = datetime(2017,12,6)
  		BEST_VOLUME = 0.5 % mL
     end
     
+    properties (Dependent)
+        invEfficiency
+    end
+    
     methods (Static)
-        function [this,h1,h2] = screenInvEfficiency()
-            %% displays a table of voluem, specific activity and efficiency^{-1}, and plots thereof.
-            %  @return call this.trainModelInvEff if this.trainedModelInvEff is empty.
-            %  @return this is the ApertureCalibration.
-            %  @return h1, h2 are figure handles to plots from "volume" to "specific activity" and "efficiency^{-1}".
+        function mat = buildCalibration()
+            %% uses regression learner, decay-in-place data from 2017dec6; 
+            %  labels corrected with reference source calibrations';
+            %  @return mat is tranedModelInveff_aperature.mat
             
-            radMeas = mlpet.CCIRRadMeasurements.createByDate(datetime(2017,12,6));
-            this = mlcapintec.ApertureCalibration(radMeas);            
-            tbl = table(this);
+            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.ApertureCalibration.BEST_DATETIME);
+            this = mlcapintec.ApertureCalibration(rm);
             
-            disp(tbl);
-            h1 = figure;
-            plot(tbl.volume, tbl.specificActivity, 'o', 'LineStyle', 'none');
-            xlabel('volume / mL');
-            ylabel('specific activity / (Bq/mL)');
-            h2 = figure;
-            plot(tbl.volume, tbl.invEfficiency, 'o', 'LineStyle', 'none');
-            xlabel('volume / mL');
-            ylabel('efficiency^{-1}');
+            datapath = fullfile(MatlabRegistry.instance.srcroot, 'mlcapintec', 'data', '');
+            mat = fullfile(datapath, 'trainedModelInvEff_aperture.mat');
+            if isfile(mat)            
+                plot(this, 'NaN_14')
+                return
+            end            
             
-            this.selfCalibrate;
+            tbl = table(this, 'NaN_14');
+            tbl.Properties.Description = 'from mlcapintec.ApertureCalibration.buildCalibration()';            
+            save(fullfile(datapath, 'decay_in_place.mat'), 'tbl')
+            
+            vol = tbl.vol;
+            inveff = tbl.inveff;
+            trainedModelInvEff_aperture = this.trainRegressionModel(table(vol, inveff));
+            save(fullfile(datapath, 'trainedModelInvEff_aperture.mat'), 'trainedModelInvEff_aperture');
+            
+        end   
+        function this = createBySession(varargin)
+            %% CREATEBYSESSION
+            %  @param required sessionData is an mlpipeline.ISessionData.
+            %  See also:  mlpet.CCIRRadMeasurements.createBySession().
+            
+            rad = mlpet.CCIRRadMeasurements.createBySession(varargin{:});
+            this = mlcapintec.ApertureCalibration.createByRadMeasurements(rad);
+        end
+        function this = createByRadMeasurements(rad)
+            %% CREATEBYRADMEASUREMENTS
+ 			%  @param required radMeasurements is mlpet.CCIRRadMeasurements.
+
+            assert(isa(rad, 'mlpet.CCIRRadMeasurements'))
+            this = mlcapintec.ApertureCalibration(rad);
+        end    
+        function inveff = invEfficiencyf(varargin)
+            %% INVEFFICIENCYF is derived from studies of aq. [18F]DG on 2017dec6.
+            %  @param required mass in g.
+            %  @param solvent in {'water' 'plasma' 'blood'}
+            %  @param model in {'polynomial', 'regressionLearner', 'none'}.
+            %  @return inveff:  predicted := inveff .* measured.
+            
+            import mlcapintec.ApertureCalibration
+            
+            ip = inputParser;
+            addRequired(ip, 'mass', @isnumeric)
+            addParameter(ip, 'solvent', 'water', @ischar)
+            addParameter(ip, 'model', 'regressionLearner', @ischar);
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            
+            switch (ipr.solvent)
+                case 'water'
+                    vol = ascol(ipr.mass)/ApertureCalibration.WATER_DENSITY;
+                case 'blood'
+                    vol = ascol(ipr.mass)/ApertureCalibration.BLOOD_DENSITY;
+                case 'plasma'
+                    vol = ascol(ipr.mass)/ApertureCalibration.PLASMA_DENSITY;
+                otherwise
+                    error('mlcapintec:NotImplementedError', ...
+                        'ApertureCalibration.invEfficiency.ipr.solvent->%s', ipr.solvent)
+            end            
+            switch (ipr.model)
+                case 'polynomial'
+                    inveff = 1592.7 ./ ...
+                        (53.495*vol.^3 - 298.43*vol.^2 + 191.17*vol + 1592.7);
+                case 'regressionLearner'
+                    srcroot = MatlabRegistry.instance.srcroot;
+                    obj = load(fullfile(srcroot, 'mlcapintec', 'data', 'trainedModelInvEff_aperture.mat')); 
+                    T = table(vol);
+                    inveff = obj.trainedModelInvEff_aperture.predictFcn(T);
+                case 'none'
+                    inveff = ones(size(vol));
+                otherwise 
+                    error('mlcapintec:NotImplementedError', ...
+                        'ApertureCalibration.invEfficiency.ipr.model->%s', ipr.model)
+            end
         end
     end
 
 	methods 
         
+        %% GET
+        
+        function g = get.invEfficiency(~) %#ok<STOUT>
+            error('mlcapintec:RuntimeError', 'ApertureCalibration.get.invEfficiency:  use infEfficiencyf(mass)')
+        end
+        
         %%
         
-        function ie   = predictInvEff(this, varargin)
-            %% PREDICTINVEFF predicts efficiency^{-1} from sample volumes.
-            %  @param volume is table || is numeric.
-            %  @return ie is numeric.
+        function [h1,h2,h3] = plot(this, varargin)
+            %% PLOT mass versus {activity, specific activity, efficiency^{-1}}
+            %  @param optional arow for table(this, arow) is char.
+            %  @return h1, h2, h3 are figure handles.
+                      
+            tbl = table(this, varargin{:});
+            mass = tbl.mass;
+            vol = tbl.vol;
+            label_ge68 = tbl.label_ge68;
+            ge68 = tbl.ge68;
+            label_specific_activity = tbl.label_specific_activity;
+            specific_activity = tbl.specific_activity;
+            inveff = tbl.inveff;
+            
+            figure; 
+            h1 = plot(mass, label_ge68, ':o', mass, ge68, ':o');
+            xlabel('mass / g'); ylabel('activity / kdpm'); legend('label [^{18}F]DG', '[^{18}F]DG');
+            figure; 
+            h2 = plot(mass, label_specific_activity, ':o', mass, specific_activity, ':o');
+            xlabel('mass / g'); ylabel('specific activity / (kdpm/g)'); legend('label [^{18}F]DG', '[^{18}F]DG');
+            figure; 
+            h3 = plot(vol, inveff, ':o');
+            xlabel('volume / mL'); ylabel('efficiency^{-1}');
+        end
+        function tbl = table(this, varargin)
+            %% TABLE
+            %  @param arow is char.
+            %  @return table(mass, ge68, label_ge68, specific_activity, label_specific_activity, dtime, inveff).
             
             ip = inputParser;
-            addParameter(ip, 'volume', @(x) istable(x) || isnumeric(x));
-            parse(ip, varargin{:});
-            v = ip.Results.volume;
+            addOptional(ip, 'arow', 'NaN_14', @ischar)
+            addParameter(ip, 'rowSelect', 2:24, @isnumeric)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
             
-            if (isnumeric(v))
-                v = ensureColVector(v);
-                v = table(v);
-            end
-            assert(istable(v));
-            assert(~isempty(this.trainedModelInvEff));
-            ie = this.trainedModelInvEff.predictFcn(v);
-        end
-        function tbl  = table(this, varargin)
-            %% TABLE
-            %  @return table(..., 'VariableNames', {'volume' 'specificActivity' 'invEfficiency'}, varargin{:})
-            %  for decay-corrected specificActivity and invEfficiency := specificActivity / specificActivity(BEST_VOLUME); 
+            well = this.radMeasurements.wellCounter;
             
-            import mlcapintec.ApertureCalibration;
-            import mlpet.Radionuclides.halflifeOf;
-            v  = this.wellCounter.MassSample_G / ApertureCalibration.WATER_DENSITY; % mL
-            t  = this.wellCounter.TIMECOUNTED_Hh_mm_ss; % datetime
-            a  = this.wellCounter.Ge_68_Kdpm * (1e3/60); % Bq
-            hl = seconds(halflifeOf('[18F]')); % duration
-            a  = a .* 2.^((t - t(1))/hl); % Bq, decay-corrected
-            sa = a ./ v; % Bq/mL
-            ie = mean(sa(0.9*this.BEST_VOLUME <= v & v <= this.BEST_VOLUME*1.1)) ./ sa;
-            assert(all(~isnan(ie)), 'mlcapintec:ValueError', 'ApertureCalibration.table');
+            % dtime, ge68, mass, specific_activity from 'aperture data from 2017dec6.numbers' 
+            dtime = seconds(well.TIMECOUNTED_Hh_mm_ss(ipr.rowSelect) - well.TIMECOUNTED_Hh_mm_ss(ipr.arow));
+            mass  = well.MassSample_G(ipr.rowSelect);
+            vol   = mass/mlcapintec.ApertureCalibration.WATER_DENSITY;
+            ge68  = well.Ge_68_Kdpm(ipr.rowSelect);
             
-            tbl = table(v, sa, ie, 'VariableNames', {'volume' 'specificActivity' 'invEfficiency'}, varargin{:});
+            ieGe68 = mlcapintec.RefSourceCalibration.Ge68_PREDICTED_OVER_Ge68_MEASURED;
+            label_ge68 = ieGe68 * well.Ge_68_Kdpm(ipr.arow) .* 2.^(-dtime/6586.272) .* mass / well.MassSample_G(ipr.arow);
+            label_specific_activity = label_ge68 ./ mass;
+            specific_activity = ge68 ./ mass;
+            inveff = label_ge68 ./ ge68; 
+            
+            tbl = table(mass, vol, ge68, label_ge68, specific_activity, label_specific_activity, dtime, inveff);
+            tbl.Properties.VariableUnits = {'g' 'mL' 'kdpm' 'kdpm' 'kdpm/g' 'kdpm/g' 's' ''};
         end
-		  
- 		function this = ApertureCalibration(varargin)
- 			%% APERTURECALIBRATION
-
-            this = this@mlcapintec.AbstractCalibration(varargin{:});
- 		end
-    end 
-    
-    %% PROTECTED
-    
-    methods (Access = protected)        
-        function g = getTrainedModelInvEff__(this)
-            g = this.trainedModelInvEff_;
-        end
-        function g = getTrainedModelInvEff_mat__(~)
-            g = fullfile( ...
-                mlpipeline.ResourcesRegistry.instance().matlabDrive, ...
-                'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffAperature.mat');
-        end
-        function [trainedModel, validationRMSE] = trainRegressionLearner__(~, trainingData)
-            % [trainedModel, validationRMSE] = trainRegressionLearner__(trainingData)
+        function [trainedModel, validationRMSE] = trainRegressionModel(~, trainingData)
+            % [trainedModel, validationRMSE] = trainRegressionModel(trainingData)
             % returns a trained regression model and its RMSE. This code recreates the
             % model trained in Regression Learner app. Use the generated code to
             % automate training the same model with new data, or to learn how to
@@ -122,7 +190,7 @@ classdef ApertureCalibration < handle & mlcapintec.AbstractCalibration
             %
             % For example, to retrain a regression model trained with the original data
             % set T, enter:
-            %   [trainedModel, validationRMSE] = trainRegressionLearner__(T)
+            %   [trainedModel, validationRMSE] = trainRegressionModel(T)
             %
             % To make predictions with the returned 'trainedModel' on new data T2, use
             %   yfit = trainedModel.predictFcn(T2)
@@ -131,102 +199,62 @@ classdef ApertureCalibration < handle & mlcapintec.AbstractCalibration
             % during training. For details, enter:
             %   trainedModel.HowToPredict
             
-            % Auto-generated by MATLAB on 07-Nov-2018 02:57:08
+            % Auto-generated by MATLAB on 24-Feb-2020 02:45:34
             
             
             % Extract predictors and response
             % This code processes the data into the right shape for training the
             % model.
             inputTable = trainingData;
-            predictorNames = {'volume'};
+            predictorNames = {'vol'};
             predictors = inputTable(:, predictorNames);
-            response = inputTable.invEfficiency;
-            isCategoricalPredictor = false; %#ok<NASGU>
+            response = inputTable.inveff;
+            isCategoricalPredictor = [false];
             
             % Train a regression model
             % This code specifies all the model options and trains the model.
-            responseScale = iqr(response);
-            if ~isfinite(responseScale) || responseScale == 0.0
-                responseScale = 1.0;
-            end
-            boxConstraint = responseScale/1.349;
-            epsilon = responseScale/13.49;
-            regressionSVM = fitrsvm(...
+            regressionGP = fitrgp(...
                 predictors, ...
                 response, ...
-                'KernelFunction', 'polynomial', ...
-                'PolynomialOrder', 2, ...
-                'KernelScale', 'auto', ...
-                'BoxConstraint', boxConstraint, ...
-                'Epsilon', epsilon, ...
+                'BasisFunction', 'constant', ...
+                'KernelFunction', 'rationalquadratic', ...
                 'Standardize', true);
             
             % Create the result struct with predict function
             predictorExtractionFcn = @(t) t(:, predictorNames);
-            svmPredictFcn = @(x) predict(regressionSVM, x);
-            trainedModel.predictFcn = @(x) svmPredictFcn(predictorExtractionFcn(x));
+            gpPredictFcn = @(x) predict(regressionGP, x);
+            trainedModel.predictFcn = @(x) gpPredictFcn(predictorExtractionFcn(x));
             
             % Add additional fields to the result struct
-            trainedModel.RequiredVariables = {'volume'};
-            trainedModel.RegressionSVM = regressionSVM;
-            trainedModel.About = 'This struct is a trained model exported from Regression Learner R2018a.';
+            trainedModel.RequiredVariables = {'vol'};
+            trainedModel.RegressionGP = regressionGP;
+            trainedModel.About = 'This struct is a trained model exported from Regression Learner R2019b.';
             trainedModel.HowToPredict = sprintf('To make predictions on a new table, T, use: \n  yfit = c.predictFcn(T) \nreplacing ''c'' with the name of the variable that is this struct, e.g. ''trainedModel''. \n \nThe table, T, must contain the variables returned by: \n  c.RequiredVariables \nVariable formats (e.g. matrix/vector, datatype) must match the original training data. \nAdditional variables are ignored. \n \nFor more information, see <a href="matlab:helpview(fullfile(docroot, ''stats'', ''stats.map''), ''appregression_exportmodeltoworkspace'')">How to predict using an exported model</a>.');
             
             % Extract predictors and response
             % This code processes the data into the right shape for training the
             % model.
             inputTable = trainingData;
-            predictorNames = {'volume'};
+            predictorNames = {'vol'};
             predictors = inputTable(:, predictorNames);
-            response = inputTable.invEfficiency;
-            isCategoricalPredictor = false;
+            response = inputTable.inveff;
+            isCategoricalPredictor = [false];
             
             % Perform cross-validation
-            KFolds = 5;
-            cvp = cvpartition(size(response, 1), 'KFold', KFolds);
-            % Initialize the predictions to the proper sizes
-            validationPredictions = response;
-            for fold = 1:KFolds
-                trainingPredictors = predictors(cvp.training(fold), :);
-                trainingResponse = response(cvp.training(fold), :);
-                foldIsCategoricalPredictor = isCategoricalPredictor; %#ok<NASGU>
-                
-                % Train a regression model
-                % This code specifies all the model options and trains the model.
-                responseScale = iqr(trainingResponse);
-                if ~isfinite(responseScale) || responseScale == 0.0
-                    responseScale = 1.0;
-                end
-                boxConstraint = responseScale/1.349;
-                epsilon = responseScale/13.49;
-                regressionSVM = fitrsvm(...
-                    trainingPredictors, ...
-                    trainingResponse, ...
-                    'KernelFunction', 'polynomial', ...
-                    'PolynomialOrder', 2, ...
-                    'KernelScale', 'auto', ...
-                    'BoxConstraint', boxConstraint, ...
-                    'Epsilon', epsilon, ...
-                    'Standardize', true);
-                
-                % Create the result struct with predict function
-                svmPredictFcn = @(x) predict(regressionSVM, x);
-                validationPredictFcn = @(x) svmPredictFcn(x);
-                
-                % Add additional fields to the result struct
-                
-                % Compute validation predictions
-                validationPredictors = predictors(cvp.test(fold), :);
-                foldPredictions = validationPredictFcn(validationPredictors);
-                
-                % Store predictions in the original order
-                validationPredictions(cvp.test(fold), :) = foldPredictions;
-            end
+            partitionedModel = crossval(trainedModel.RegressionGP, 'KFold', 5);
+            
+            % Compute validation predictions
+            validationPredictions = kfoldPredict(partitionedModel);
             
             % Compute validation RMSE
-            isNotMissing = ~isnan(validationPredictions) & ~isnan(response);
-            validationRMSE = sqrt(nansum(( validationPredictions - response ).^2) / numel(response(isNotMissing) ));
+            validationRMSE = sqrt(kfoldLoss(partitionedModel, 'LossFun', 'mse'));
         end
+		  
+ 		function this = ApertureCalibration(varargin)
+ 			%% APERTURECALIBRATION
+
+            this = this@mlpet.AbstractCalibration(varargin{:});
+ 		end
     end
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy
