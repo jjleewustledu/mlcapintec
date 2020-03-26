@@ -12,6 +12,7 @@ classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
     end
     
     properties (Dependent)
+        calibrationAvailable
         indexBestActivity
         invEfficiency
     end
@@ -21,7 +22,7 @@ classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
             %% uses regressionLearner, decay-in-place data from 2017sep6
             %  @return mat is tranedModelInveff_sensitivity.mat
             
-            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.SensitivityCalibration.BEST_DATETIME);
+            rm = mlpet.CCIRRadMeasurements.createFromDate(mlcapintec.SensitivityCalibration.BEST_DATETIME);
             this = mlcapintec.SensitivityCalibration(rm);
             
             datapath = fullfile(MatlabRegistry.instance.srcroot, 'mlcapintec', 'data', '');            
@@ -39,15 +40,15 @@ classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
             trainedModelInvEff_sensitivity = this.trainRegressionModel(table(ge68, inveff));
             save(fullfile(datapath, 'trainedModelInvEff_sensitivity.mat'), 'trainedModelInvEff_sensitivity');
         end
-        function this = createBySession(varargin)
+        function this = createFromSession(varargin)
             %% CREATEBYSESSION
             %  @param required sessionData is an mlpipeline.ISessionData.
-            %  See also:  mlpet.CCIRRadMeasurements.createBySession().
+            %  See also:  mlpet.CCIRRadMeasurements.createFromSession().
             
-            rad = mlpet.CCIRRadMeasurements.createBySession(varargin{:});
-            this = mlcapintec.SensitivityCalibration.createByRadMeasurements(rad);
+            rad = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
+            this = mlcapintec.SensitivityCalibration.createFromRadMeasurements(rad);
         end
-        function this = createByRadMeasurements(rad)
+        function this = createFromRadMeasurements(rad)
             %% CREATEBYRADMEASUREMENTS
  			%  @param required radMeasurements is mlpet.CCIRRadMeasurements.
 
@@ -75,6 +76,9 @@ classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
         
         %% GET
         
+        function g = get.calibrationAvailable(~)
+            g = true;
+        end
         function g = get.indexBestActivity(this)
             if (isempty(this.indexBestActivity_))                
                 da = this.radMeasurements.wellCounter.Ge_68_Kdpm - this.BEST_ACTIVITY; % kdpm
