@@ -12,6 +12,7 @@ classdef ApertureCalibration < handle & mlpet.AbstractCalibration
     end
     
     properties (Dependent)
+        calibrationAvailable
         invEfficiency
     end
     
@@ -21,7 +22,7 @@ classdef ApertureCalibration < handle & mlpet.AbstractCalibration
             %  labels corrected with reference source calibrations';
             %  @return mat is tranedModelInveff_aperature.mat
             
-            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.ApertureCalibration.BEST_DATETIME);
+            rm = mlpet.CCIRRadMeasurements.createFromDate(mlcapintec.ApertureCalibration.BEST_DATETIME);
             this = mlcapintec.ApertureCalibration(rm);
             
             datapath = fullfile(MatlabRegistry.instance.srcroot, 'mlcapintec', 'data', '');
@@ -41,15 +42,15 @@ classdef ApertureCalibration < handle & mlpet.AbstractCalibration
             save(fullfile(datapath, 'trainedModelInvEff_aperture.mat'), 'trainedModelInvEff_aperture');
             
         end   
-        function this = createBySession(varargin)
+        function this = createFromSession(varargin)
             %% CREATEBYSESSION
             %  @param required sessionData is an mlpipeline.ISessionData.
-            %  See also:  mlpet.CCIRRadMeasurements.createBySession().
+            %  See also:  mlpet.CCIRRadMeasurements.createFromSession().
             
-            rad = mlpet.CCIRRadMeasurements.createBySession(varargin{:});
-            this = mlcapintec.ApertureCalibration.createByRadMeasurements(rad);
+            rad = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
+            this = mlcapintec.ApertureCalibration.createFromRadMeasurements(rad);
         end
-        function this = createByRadMeasurements(rad)
+        function this = createFromRadMeasurements(rad)
             %% CREATEBYRADMEASUREMENTS
  			%  @param required radMeasurements is mlpet.CCIRRadMeasurements.
 
@@ -105,6 +106,9 @@ classdef ApertureCalibration < handle & mlpet.AbstractCalibration
         
         %% GET
         
+        function g = get.calibrationAvailable(~)
+            g = true;
+        end
         function g = get.invEfficiency(~) %#ok<STOUT>
             error('mlcapintec:RuntimeError', 'ApertureCalibration.get.invEfficiency:  use infEfficiencyf(mass)')
         end

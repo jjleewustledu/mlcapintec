@@ -17,6 +17,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
 
     properties (Dependent)
         activity
+        calibrationAvailable
         invEfficiency
         refSource
     end
@@ -25,15 +26,15 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
         function mat = buildCalibration()
             mat = [];
         end   
-        function this = createBySession(varargin)
+        function this = createFromSession(varargin)
             %% CREATEBYSESSION
             %  @param required sessionData is an mlpipeline.ISessionData.
-            %  See also:  mlpet.CCIRRadMeasurements.createBySession().
+            %  See also:  mlpet.CCIRRadMeasurements.createFromSession().
             
-            rad = mlpet.CCIRRadMeasurements.createBySession(varargin{:});
-            this = mlcapintec.RefSourceCalibration.createByRadMeasurements(rad);
+            rad = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
+            this = mlcapintec.RefSourceCalibration.createFromRadMeasurements(rad);
         end
-        function this = createByRadMeasurements(rad)
+        function this = createFromRadMeasurements(rad)
             %% CREATEBYRADMEASUREMENTS
  			%  @param required radMeasurements is mlpet.CCIRRadMeasurements.
 
@@ -120,7 +121,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
             end            
             rms = {};
             for g = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'CCIRRadMeasurements*.xlsx'))
-                rm = mlpet.CCIRRadMeasurements.createByFilename(g{1});
+                rm = mlpet.CCIRRadMeasurements.createFromFilename(g{1});
                 if lstrfind(rm.wellCounter.TRACER, isotope) && all(~isnan(rm.wellCounter.CF_Kdpm))
                     rms = [rms {rm}];
                 end
@@ -144,6 +145,9 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
                     error('mlcapintec:ValueError', 'RefSourceCalibration.get.activity for %s', this.refSource.isotope);
             end
         end
+        function g = get.calibrationAvailable(~)
+            g = true;
+        end
         function g = get.invEfficiency(~)
             g = mlcapintec.RefSourcCalibration.invEfficiencyf();
         end
@@ -160,7 +164,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
  			this = this@mlpet.AbstractCalibration(varargin{:});
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addRequired(ip, 'radMeas', @(x) isa(x, 'mlpet.RadMeasurements'));
+            addParameter(ip, 'radMeas', @(x) isa(x, 'mlpet.RadMeasurements'));
             addParameter(ip, 'refSource', [], @(x) isa(x, 'mlpet.ReferenceSource'));
             parse(ip, varargin{:});  
             this.refSource_ = ip.Results.refSource;
@@ -188,7 +192,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'filepath', getenv('CCIR_RAD_MEASUREMENTS_DIR'), @isfolder);
-            addParameter(ip, 'makeplot', true, @islogical);
+            addParameter(ip, 'makeplot', false, @islogical);
             addParameter(ip, 'trainmodel', false, @islogical);
             parse(ip);
             
@@ -196,7 +200,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
             tbl  = [];
             for x = 1:length(xlsx.fqfns)
                 try
-                    radMeas_ = mlpet.CCIRRadMeasurements.createByFilename(fullfile(ip.Results.filepath, xlsx.fns{x}));
+                    radMeas_ = mlpet.CCIRRadMeasurements.createFromFilename(fullfile(ip.Results.filepath, xlsx.fns{x}));
                     this_ = mlcapintec.RefSourceCalibration(radMeas_, varargin{:});
                     tbl = vertcat(tbl, table(this_));
                 catch ME
@@ -240,8 +244,8 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
             addParameter(ip, 'makeplot', true, @islogical);
             addParameter(ip, 'trainmodel', false, @islogical);
             parse(ip);
-            radMeas = mlpet.CCIRRadMeasurements.createByDate(ip.Results.date);
-            this = RefSourceCalibration(radMeas, varargin{:});            
+            radMeas = mlpet.CCIRRadMeasurements.createFromDate(ip.Results.date);
+            this = RefSourceCalibration('radMeas', radMeas, varargin{:});            
             tbl = table(this);  
             
             disp(tbl);

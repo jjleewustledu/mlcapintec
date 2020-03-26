@@ -1,4 +1,4 @@
-classdef CapracDevice < handle & mlpet.Device
+classdef CapracDevice < handle & mlpet.AbstractDevice
 	%% CAPRACDEVICE  
     %  1/22/2016
     %  4/8/2016
@@ -103,7 +103,7 @@ classdef CapracDevice < handle & mlpet.Device
         end
         function ie   = invEfficiency(this, varargin)
             %% INVEFFICIENCY is the linear estimate of the mapping from raw measurements to calibrated measurements.
-            %  @throws mlpet.ValueError if the gradient of the estimate exceeds Device.ALPHA.
+            
             ip = inputParser;
             ip.KeepUnmatched = true;
             addRequired(ip, 'measurement', @isnumeric);
@@ -118,7 +118,7 @@ classdef CapracDevice < handle & mlpet.Device
             %  @param referenceSources is mlpet.ReferenceSource, typically a composite.
  			%  @param radMeasurements is mlpet.RadMeasurements.
 
-            this = this@mlpet.Device(varargin{:});
+            this = this@mlpet.AbstractDevice(varargin{:});
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'referenceSources', [], @(x) isa(x, 'mlpet.ReferenceSource') || isempty(x));

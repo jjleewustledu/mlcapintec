@@ -73,7 +73,7 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
                 'Assessor', '', ...
                 'resource', 'RawData', ...
                 'tags', {'Head_MRAC_PET_5min'});
-            this.radMeas = CCIRRadMeasurements.createBySession(this.session);
+            this.radMeas = CCIRRadMeasurements.createFromSession(this.session);
             this.refSources = mlpet.DeviceKit.createReferenceSources('session', this.session);
  		end
 	end
