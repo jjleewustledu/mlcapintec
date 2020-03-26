@@ -14,7 +14,6 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
         radMeas
         refSources
  		registry
-        scan
         session
  		testObj
  	end
@@ -23,7 +22,6 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
         function test_ctor(this)
             disp(this.radMeas)
             disp(this.refSources)
-            disp(this.scan)
             disp(this.session)
         end
         function test_ApertureCalibration_invEfficiencyf(this)
@@ -34,32 +32,32 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
             this.verifyEqual( ...
                 1078*ApertureCalibration.invEfficiencyf(0.2236, 'model', 'polynomial')/0.2236, 4736.58, 'RelTol', 1e-4)
             this.verifyEqual( ...
-                1632*ApertureCalibration.invEfficiencyf(1.0908, 'model', 'polynomial')/1.0908, 1572.29, 'RelTol', 1e-4)
+                1632*ApertureCalibration.invEfficiencyf(1.0908, 'model', 'polynomial')/1.0908, 1572.83750195537, 'RelTol', 1e-4)
             this.verifyEqual( ...
-                2975*ApertureCalibration.invEfficiencyf(2.2824, 'model', 'polynomial')/2.2824, 1869.53, 'RelTol', 1e-4)
+                2975*ApertureCalibration.invEfficiencyf(2.2824, 'model', 'polynomial')/2.2824, 1871.84967061124, 'RelTol', 1e-4)
               
             this.verifyEqual( ...
-                1078*ApertureCalibration.invEfficiencyf(0.2236, 'model', 'regressionLearner')/0.2236, 4544.57, 'RelTol', 1e-4)
+                1078*ApertureCalibration.invEfficiencyf(0.2236, 'model', 'regressionLearner')/0.2236, 4449.14611689021, 'RelTol', 1e-4)
             this.verifyEqual( ...
-                1632*ApertureCalibration.invEfficiencyf(1.0908, 'model', 'regressionLearner')/1.0908, 1642.06, 'RelTol', 1e-4)
+                1632*ApertureCalibration.invEfficiencyf(1.0908, 'model', 'regressionLearner')/1.0908, 1607.58276543806, 'RelTol', 1e-4)
             this.verifyEqual( ...
-                2975*ApertureCalibration.invEfficiencyf(2.2824, 'model', 'regressionLearner')/2.2824, 2002.56, 'RelTol', 1e-4)
+                2975*ApertureCalibration.invEfficiencyf(2.2824, 'model', 'regressionLearner')/2.2824, 1960.511260158, 'RelTol', 1e-4)
             
             this.verifyEqual( ...
-                1078*ApertureCalibration.invEfficiencyf(0.2236, 'model', 'regressionLearner', 'solvent', 'blood')/0.2236, 4524.52, 'RelTol', 1e-4)
+                1078*ApertureCalibration.invEfficiencyf(0.2236, 'model', 'regressionLearner', 'solvent', 'blood')/0.2236, 4429.51543078802, 'RelTol', 1e-4)
             this.verifyEqual( ...
-                1632*ApertureCalibration.invEfficiencyf(1.0908, 'model', 'regressionLearner', 'solvent', 'blood')/1.0908, 1625.47, 'RelTol', 1e-4)
+                1632*ApertureCalibration.invEfficiencyf(1.0908, 'model', 'regressionLearner', 'solvent', 'blood')/1.0908, 1591.34335501091, 'RelTol', 1e-4)
             this.verifyEqual( ...
-                2975*ApertureCalibration.invEfficiencyf(2.2824, 'model', 'regressionLearner', 'solvent', 'blood')/2.2824, 1938.03, 'RelTol', 1e-4)
+                2975*ApertureCalibration.invEfficiencyf(2.2824, 'model', 'regressionLearner', 'solvent', 'blood')/2.2824, 1897.33927349619, 'RelTol', 1e-4)
         end
         function test_ApertureCalibration_plot(~)
-            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.ApertureCalibration.BEST_DATETIME);
-            obj = mlcapintec.ApertureCalibration(rm);
+            rm = mlpet.CCIRRadMeasurements.createFromDate(mlcapintec.ApertureCalibration.BEST_DATETIME);
+            obj = mlcapintec.ApertureCalibration('radMeas', rm);
             plot(obj)
         end        
         function test_ApertureCalibration_table(~)
-            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.ApertureCalibration.BEST_DATETIME);
-            obj = mlcapintec.ApertureCalibration(rm);
+            rm = mlpet.CCIRRadMeasurements.createFromDate(mlcapintec.ApertureCalibration.BEST_DATETIME);
+            obj = mlcapintec.ApertureCalibration('radMeas', rm);
             disp(table(obj))
         end
         function test_RefSourceCalibration_stability(~)
@@ -171,9 +169,12 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
         end
         function test_RefSourceCalibration(this)
             import mlcapintec.*;
-            r = RefSourceCalibration(this.radMeas);
-            r.screenInvEfficiency(  'refSource', this.refSources(2));
-            r.screenInvEfficiencies('refSource', this.refSources(2));
+            r = RefSourceCalibration('radMeas', this.radMeas);
+            disp(r)
+            
+            % DEPRECATED
+            %r.screenInvEfficiency(  'refSource', this.refSources(2));
+            %r.screenInvEfficiencies('refSource', this.refSources(2));
         end        
         function test_SensitivityCalibration_invEfficiencyf(this)
             import mlcapintec.SensitivityCalibration
@@ -188,15 +189,15 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
                 2002.56*SensitivityCalibration.invEfficiencyf(2002.56), 2004.82, 'RelTol', 1e-4)
         end        
         function test_SensitivityCalibration_plot(~)
-            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.SensitivityCalibration.BEST_DATETIME);
-            obj = mlcapintec.SensitivityCalibration(rm);
+            rm = mlpet.CCIRRadMeasurements.createFromDate(mlcapintec.SensitivityCalibration.BEST_DATETIME);
+            obj = mlcapintec.SensitivityCalibration('radMeas', rm);
             plot(copy(obj), 'model', 'none')
             plot(copy(obj), 'model', 'polynomial')
             plot(copy(obj), 'model', 'regressionLearner')
         end
         function test_SensitivityCalibration_table(~)
-            rm = mlpet.CCIRRadMeasurements.createByDate(mlcapintec.SensitivityCalibration.BEST_DATETIME);
-            obj = mlcapintec.SensitivityCalibration(rm);
+            rm = mlpet.CCIRRadMeasurements.createFromDate(mlcapintec.SensitivityCalibration.BEST_DATETIME);
+            obj = mlcapintec.SensitivityCalibration('radMeas', rm);
             disp(table(copy(obj), 'model', 'none'))
             disp(table(copy(obj), 'model', 'polynomial'))
             disp(table(copy(obj), 'model', 'regressionLearner'))
@@ -220,19 +221,21 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
             this.verifyEqual( ...
                 CapracCalibration.invEfficiencyf('mass', 1,   'ge68', 1000, 'solvent', 'plasma'), 1.06289, 'RelTol', 1e-4)
         end
+        function test_calibrationAvailable(this)
+            obj = mlcapintec.CapracCalibration.createFromSession(this.session);
+            this.verifyEqual(obj.calibrationAvailable, true)
+        end
+        function test_invEfficiencyf_isrow(this)
+            obj = mlcapintec.CapracCalibration.createFromSession(this.session);
+            o = ones(10, 1);
+            this.verifyTrue(isrow(obj.invEfficiencyf('mass', o, 'ge68', o)))
+        end
 	end
 
  	methods (TestClassSetup)
 		function setupCapracCalibration(this)
-            import mlraichle.*;
-            this.session = MockSession( ...
-                'project', 'CCIR_00559', 'subject', 'NP995-24', 'session', 'NP995-24_V1');
-            this.scan = MockScan( ...
-                'project', 'CCIR_00559', 'subject', 'NP995-24', 'session', this.session, ...
-                'Assessor', '', ...
-                'resource', 'RawData', ...
-                'tags', {'Head_MRAC_PET_5min'});
-            this.radMeas = mlpet.CCIRRadMeasurements.createBySession(this.session);
+            this.session = mlraichle.SessionData.create('CCIR_00559/ses-E262767/FDG_DT20181005142531.000000-Converted-AC');
+            this.radMeas = mlpet.CCIRRadMeasurements.createFromSession(this.session);
             this.refSources = mlpet.DeviceKit.createReferenceSources('session', this.session);
  		end
 	end
