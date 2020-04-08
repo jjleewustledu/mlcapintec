@@ -44,7 +44,12 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
         function inveff = invEfficiencyf()
             inveff = mlcapintec.RefSourceCalibration.Ge68_PREDICTED_OVER_Ge68_MEASURED;
         end
-        function plot_datetime2RefSourceDeviation(ref, rms)
+        function [activityMeas,activityPred] = plot_datetime2RefSourceDeviation(ref, rms)
+            %% PLOT_DATETIME2REFSOURCEDEVIATION
+            %  @param ref is mlpet.ReferenceSource
+            %  @param rms is {mlpet.CCIRRadMeasurements}.
+            %  @return activityMeas, activityPred are numeric.            
+            
             tra = sprintf('[%s]', ref.isotope);
             datetimeMeas = [];
             activityMeas = [];
@@ -87,8 +92,11 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
             fprintf('                                  N -> %i\n',    length( activityMeas))
             fprintf('                           duration -> %g\n',      days(max(datetimeMeas) - min(datetimeMeas)))
         end
-        function plotRefSourceStability(isotope)
-            %% ref measurement datetimes are enumerated in file 'cross-calibrations_20190817.xlsx'
+        function [activityMeas,activityPred] = plotRefSourceStability(isotope)
+            %% PLOTREFSOURCESTABILITY:
+            %  ref measurement datetimes are enumerated in file 'cross-calibrations_20190817.xlsx'
+            %  @param isotope is char.
+            %  @return activityMeas, activityPred are numeric.
             
             import mlpet.ReferenceSource            
             tz = 'America/Chicago';
@@ -127,7 +135,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
                 end
             end            
                         
-            mlcapintec.RefSourceCalibration.plot_datetime2RefSourceDeviation(ref, rms)
+            [activityMeas,activityPred] = mlcapintec.RefSourceCalibration.plot_datetime2RefSourceDeviation(ref, rms);
         end
     end
     
@@ -290,7 +298,7 @@ classdef RefSourceCalibration < handle & mlpet.AbstractCalibration
                 mlpipeline.ResourcesRegistry.instance().matlabDrive, ...
                 'mlcapintec', 'src', '+mlcapintec', 'trainedModelInvEffRefSource.mat');
         end        
-        function tbl  = table(this, varargin)
+        function tbl = table(this, varargin)
             %% TABLE
             %  @return table(..., 'VariableNames', {'volume' 'activity' 'predActivity' 'invEfficiency'}, varargin{:})
             %  for decaying activity and invEfficiency := activity / predActivity; 

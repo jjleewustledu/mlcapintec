@@ -49,14 +49,14 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             import mlcapintec.SensitivityCalibration
             
             ip = inputParser;
-            addParameter(ip, 'mass', NaN, @isnumeric)
             addParameter(ip, 'ge68', NaN, @isnumeric)
+            addParameter(ip, 'mass', NaN, @isnumeric)
             addParameter(ip, 'solvent', 'water', @ischar)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
-            ie = ApertureCalibration.invEfficiencyf(ipr.mass, 'solvent', ipr.solvent) .* ...
-                 SensitivityCalibration.invEfficiencyf(ipr.ge68);
+            ie = ApertureCalibration.invEfficiencyf(ascol(ipr.mass), 'solvent', ipr.solvent) .* ...
+                 SensitivityCalibration.invEfficiencyf(ascol(ipr.ge68));
             ie = asrow(ie);
         end
     end
@@ -70,18 +70,18 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             
             rm = this.radMeasurements_;
             rowSelect = this.isotopeSelection();
-            timeDrawn = rm.wellCounter.TIMEDRAWN_Hh_mm_ss(rowSelect);            
-            if ~any(isnice(timeDrawn))
+            timeCounted = rm.wellCounter.TIMECOUNTED_Hh_mm_ss(rowSelect);            
+            if ~any(isnice(timeCounted))
                 g = false;
                 return
             end                
             mass = rm.wellCounter.MassSample_G(rowSelect);
-            if ~any(isnice(mass(isnice(timeDrawn))))
+            if ~any(isnice(mass(isnice(timeCounted))))
                 g = false;
                 return
             end
             ge68 = rm.wellCounter.Ge_68_Kdpm(rowSelect);
-            if ~any(isnice(ge68(isnice(timeDrawn))))
+            if ~any(isnice(ge68(isnice(timeCounted))))
                 g = false;
                 return
             end

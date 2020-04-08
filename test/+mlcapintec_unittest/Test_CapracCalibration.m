@@ -12,7 +12,6 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
  	
 	properties
         radMeas
-        refSources
  		registry
         session
  		testObj
@@ -21,8 +20,8 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
 	methods (Test)
         function test_ctor(this)
             disp(this.radMeas)
-            disp(this.refSources)
             disp(this.session)
+            disp(this.testObj)
         end
         function test_ApertureCalibration_invEfficiencyf(this)
             import mlcapintec.ApertureCalibration
@@ -60,10 +59,16 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
             obj = mlcapintec.ApertureCalibration('radMeas', rm);
             disp(table(obj))
         end
-        function test_RefSourceCalibration_stability(~)
-            mlcapintec.RefSourceCalibration.plotRefSourceStability('137Cs')
-            mlcapintec.RefSourceCalibration.plotRefSourceStability('22Na')
-            mlcapintec.RefSourceCalibration.plotRefSourceStability('68Ge')
+        function test_RefSourceCalibration_stability(this)
+            [meas,pred] = mlcapintec.RefSourceCalibration.plotRefSourceStability('137Cs');
+            this.verifyEqual(mean(meas./pred), 0.82796, 'RelTol', 1e-4)
+            this.verifyEqual( std(meas./pred), 0.00234099, 'RelTol', 1e-4)
+            [meas,pred] = mlcapintec.RefSourceCalibration.plotRefSourceStability('22Na');
+            this.verifyEqual(mean(meas./pred), 0.972374, 'RelTol', 1e-4)
+            this.verifyEqual( std(meas./pred), 0.0181508, 'RelTol', 1e-4)
+            [meas,pred] = mlcapintec.RefSourceCalibration.plotRefSourceStability('68Ge');
+            this.verifyEqual(mean(meas./pred), 1.02054, 'RelTol', 1e-4)
+            this.verifyEqual( std(meas./pred), 0.00968142, 'RelTol', 1e-4)
             
             % mlcapintec.RefSourceCalibration.plotRefSourceStability('137Cs')
             % 
@@ -171,6 +176,7 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
             import mlcapintec.*;
             r = RefSourceCalibration('radMeas', this.radMeas);
             disp(r)
+            this.verifyEqual(r.invEfficiencyf(), 0.979873)
             
             % DEPRECATED
             %r.screenInvEfficiency(  'refSource', this.refSources(2));
@@ -236,7 +242,6 @@ classdef Test_CapracCalibration < matlab.unittest.TestCase
 		function setupCapracCalibration(this)
             this.session = mlraichle.SessionData.create('CCIR_00559/ses-E262767/FDG_DT20181005142531.000000-Converted-AC');
             this.radMeas = mlpet.CCIRRadMeasurements.createFromSession(this.session);
-            this.refSources = mlpet.DeviceKit.createReferenceSources('session', this.session);
  		end
 	end
 
