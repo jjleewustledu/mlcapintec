@@ -7,8 +7,14 @@ classdef CapracData < handle & mlpet.AbstractTracerData
  	%% It was developed on Matlab 9.7.0.1296695 (R2019b) Update 4 for MACI64.  Copyright 2020 John Joowon Lee.
  	
 	properties (Dependent)
+        Ge_68_Kdpm
+        MASSSAMPLE_G
  		radMeasurements
-        visibleVolume % vector for syringe containing whole blood
+        TIMECOUNTED_Hh_mm_ss
+        TIMEDRAWN_Hh_mm_ss
+        TRACER
+        visibleVolume % vector for syringe containing whole blood        
+        W_01_Kcpm
  	end
     
     methods (Static)
@@ -25,35 +31,78 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         
         %% GET
         
+        function g = get.Ge_68_Kdpm(this)
+            g = this.radMeasurements.(this.countsTableName_).Ge_68_Kdpm;
+        end
+        function     set.Ge_68_Kdpm(this, s)
+            assert(all(isnumeric(s)))
+            this.radMeasurements.(this.countsTableName_).Ge_68_Kdpm = s;
+        end
+        function g = get.MASSSAMPLE_G(this)
+            g = this.radMeasurements.(this.countsTableName_).MASSSAMPLE_G;
+        end
+        function     set.MASSSAMPLE_G(this, s)
+            assert(all(isnumeric(s)))
+            this.radMeasurements.(this.countsTableName_).MASSSAMPLE_G = s;
+        end
         function g = get.radMeasurements(this)
             g = this.radMeasurements_;
         end
-        function g = get.visibleVolume(this)
-            mass = this.radMeasurements.countsFdg.MASSSAMPLE_G(this.countsFdgSelection);
-            g = mass/mlcapintec.CapracCalibration.BLOOD_DENSITY;
+        function g = get.TIMECOUNTED_Hh_mm_ss(this)
+            g = this.radMeasurements.(this.countsTableName_).TIMECOUNTED_Hh_mm_ss;
         end
+        function g = get.TIMEDRAWN_Hh_mm_ss(this)
+            g = this.radMeasurements.(this.countsTableName_).TIMEDRAWN_Hh_mm_ss;
+        end
+        function g = get.TRACER(this)
+            g = this.radMeasurements.(this.countsTableName_).TRACER;
+        end
+        function g = get.visibleVolume(this)
+            mass = this.MASSSAMPLE_G(this.countsTableSelection);
+            g = mass/mlcapintec.CapracCalibration.BLOOD_DENSITY;
+            g = asrow(g);
+        end        
+        function g = get.W_01_Kcpm(this)
+            g = this.radMeasurements.(this.countsTableName_).W_01_Kcpm;
+        end
+        function     set.W_01_Kcpm(this, s)
+            assert(all(isnumeric(s)))
+            this.radMeasurements.(this.countsTableName_).W_01_Kcpm = s;
+        end        
         
         %% 
         
-        function [a,m] = activity(this, varargin)
-            %% Bq for whole blood in syringes, without Caprac calibrations.
+        function a = activity(this, varargin)
+            %% FDG Bq for whole blood in drawn syringes, without Caprac calibrations.
             %  See also mlcapintec.CapracDevice for implementation of calibrations.
-            %  @param decayCorrected, default := false.
- 			%  @param datetimeForDecayCorrection updates internal.
-            %  @return activity (Bq), mass (g).
+            %  @return activity (Bq).
             
-            a = this.radMeasurements.countsFdg.Ge_68_Kdpm(this.countsFdgSelection)*1e3/60;
-            m = this.radMeasurements.countsFdg.MASSSAMPLE_G(this.countsFdgSelection);     
+            a = this.Ge_68_Kdpm(this.countsTableSelection)*1e3/60;
+            a = asrow(a);
+            a = this.shiftCountTimeToDrawTime(a);
+        end
+        function [a,m] = activity_kdpm(this, varargin)
+            %% FDG kdpm for whole blood in measured syringes, without Caprac calibrations.
+            %  See also mlcapintec.CapracDevice for implementation of calibrations.
+            %  @return activity (kdpm), mass (g).
+            
+            a = this.Ge_68_Kdpm(this.countsTableSelection);
+            a = asrow(a);
+            m = this.MASSSAMPLE_G(this.countsTableSelection);     
+            m = asrow(m);
             assert(all(size(a) == size(m)))
         end
-        function [a,m] = activityDensity(this, varargin)
-            %% Bq/mL for whole blood in syringes, without Caprac calibrations.
+        function a = activityDensity(this, varargin)
+            %% FDG Bq/mL for whole blood in drawn syringes, without Caprac calibrations.
             %  See also mlcapintec.CapracDevice for implementation of calibrations.            
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
-            %  @return activity density (Bq/mL), mass (g).
+            %  @param index0.
+            %  @param indexF.
+            %  @return activity density (Bq/mL).
             
             ip = inputParser;
+            ip.KeepUnmatched = true;
             addParameter(ip, 'decayCorrected', false, @islogical)
             addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isnat(x) || isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
@@ -69,17 +118,21 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 this = this.decayCorrect();
             end
             
-            [a,m] = this.activity(varargin{:});            
+            a = this.activity(varargin{:});            
             assert(all(size(a) == size(this.visibleVolume)))
-            a = a./this.visibleVolume;
+            a = a ./ this.visibleVolume;
+            a = this.shiftCountTimeToDrawTime(a);
         end
-        function [c,m] = countRate(this, varargin)
-            %% cps
+        function c = countRate(this, varargin)
+            %% FDG cps for whole blood in drawn syringes, without Caprac calibrations.
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
-            %  @return count-rate (cps), mass (g).
+            %  @param index0.
+            %  @param indexF.
+            %  @return count-rate (cps).
             
             ip = inputParser;
+            ip.KeepUnmatched = true;
             addParameter(ip, 'decayCorrected', false, @islogical)
             addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isnat(x) || isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
@@ -95,32 +148,33 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 this = this.decayCorrect();
             end
             
-            c = this.radMeasurements.countsFdg.W_01_Kcpm(this.countsFdgSelection);
+            c = this.W_01_Kcpm(this.countsTableSelection);
             c = c*1e3/60;
-            m = this.radMeasurements.countsFdg.MASSSAMPLE_G(this.countsFdgSelection);
+            c = asrow(c);
+            c = this.shiftCountTimeToDrawTime(c);
         end
         function this = decayCorrect(this)
             if ~this.decayCorrected                
-                vec = asrow(this.radMeasurements.countsFdg.Ge_68_Kdpm(this.countsFdgSelection));
+                vec = asrow(this.Ge_68_Kdpm(this.countsTableSelection));
                 vec = vec .* asrow(2.^( (this.times - this.timeForDecayCorrection)/this.halflife));
-                this.radMeasurements.countsFdg.Ge_68_Kdpm(this.countsFdgSelection) = ascol(vec);
+                this.Ge_68_Kdpm(this.countsTableSelection) = ascol(vec);
                 
-                vec1 = asrow(this.radMeasurements.countsFdg.W_01_Kcpm(this.countsFdgSelection));
+                vec1 = asrow(this.W_01_Kcpm(this.countsTableSelection));
                 vec1 = vec1 .* asrow(2.^( (this.times - this.timeForDecayCorrection)/this.halflife));
-                this.radMeasurements.countsFdg.W_01_Kcpm(this.countsFdgSelection) = ascol(vec1);
+                this.W_01_Kcpm(this.countsTableSelection) = ascol(vec1);
                 
                 this.decayCorrected_ = true;
             end
         end
         function this = decayUncorrect(this)
             if this.decayCorrected
-                vec = this.radMeasurements.countsFdg.Ge_68_Kdpm(this.countsFdgSelection);
+                vec = this.Ge_68_Kdpm(this.countsTableSelection);
                 vec = vec .* asrow(2.^(-(this.times - this.timeForDecayCorrection)/this.halflife));
-                this.radMeasurements.countsFdg.Ge_68_Kdpm(this.countsFdgSelection) = vec;
+                this.Ge_68_Kdpm(this.countsTableSelection) = vec;
                 
-                vec1 = this.radMeasurements.countsFdg.W_01_Kcpm(this.countsFdgSelection);
+                vec1 = this.W_01_Kcpm(this.countsTableSelection);
                 vec1 = vec1 .* asrow(2.^(-(this.times - this.timeForDecayCorrection)/this.halflife));
-                this.radMeasurements.countsFdg.W_01_Kcpm(this.countsFdgSelection) = vec1;
+                this.W_01_Kcpm(this.countsTableSelection) = vec1;
                 
                 this.decayCorrected_ = false;
             end
@@ -132,10 +186,10 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             assert(isnumeric(Dt))
             Dt = asrow(Dt);
             
-            c = asrow(this.radMeasurements.countsFdg.Ge_68_Kdpm);
-            this.radMeasurements.countsFdg.Ge_68_Kdpm = ascol(c .* 2.^(-Dt/this.halflife));
-            c1 = asrow(this.radMeasurements.countsFdg.W_01_Kcpm);
-            this.radMeasurements.countsFdg.W_01_Kcpm = ascol(c1 .* 2.^(-Dt/this.halflife));
+            c = asrow(this.Ge_68_Kdpm);
+            this.Ge_68_Kdpm = ascol(c .* 2.^(-Dt/this.halflife));
+            c1 = asrow(this.W_01_Kcpm);
+            this.W_01_Kcpm = ascol(c1 .* 2.^(-Dt/this.halflife));
             
             this.datetimeMeasured = this.datetimeMeasured + seconds(Dt);
         end
@@ -144,6 +198,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
     %% PROTECTED
     
     properties (Access = protected)
+        countsTableName_
         radMeasurements_
     end
 
@@ -154,7 +209,16 @@ classdef CapracData < handle & mlpet.AbstractTracerData
  			this = this@mlpet.AbstractTracerData(varargin{:});
             this.decayCorrected_ = false;
             this.radMeasurements_ = mlpet.CCIRRadMeasurements.createFromDate(this.datetimeMeasured);
-            drawTimes = this.radMeasurements_.countsFdg.TIMEDRAWN_Hh_mm_ss(this.countsFdgSelection);
+            switch this.tracer_
+                case 'FDG'
+                    this.countsTableName_ = 'countsFdg';
+                case {'OC' 'OO'}
+                    this.countsTableName_ = 'countsOcOo';
+                otherwise
+                    error('mlcapintec:ValueError', ...
+                        'CapracData.countsTablename_->%s is not yet supported', this.countsTablename_)
+            end
+            drawTimes = this.TIMEDRAWN_Hh_mm_ss(this.countsTableSelection);
             this.datetimeMeasured = drawTimes(1) - this.clocksTimeOffsetWrtNTS;
             this.times = seconds(asrow(drawTimes - drawTimes(1)));
         end
@@ -167,13 +231,18 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 sec = seconds(this.radMeasurements.clocks.TIMEOFFSETWRTNTS____S('hand timers'));
             end
         end 
-        function tf = countsFdgSelection(this)
-            rm = this.radMeasurements;
-            tf = logical(cell2mat(strfind(rm.countsFdg.TRACER, this.radionuclides_.isotope))) & ...
-                isnice(rm.countsFdg.TIMEDRAWN_Hh_mm_ss) & ...
-                isnice(rm.countsFdg.TIMECOUNTED_Hh_mm_ss) & ...
-                isnice(rm.countsFdg.Ge_68_Kdpm) & ...
-                isnice(rm.countsFdg.MASSSAMPLE_G);
+        function tf = countsTableSelection(this)
+            tf = logical(cell2mat(strfind(this.TRACER, this.radionuclides_.isotope))) & ...
+                isnice(this.TIMEDRAWN_Hh_mm_ss) & ...
+                isnice(this.TIMECOUNTED_Hh_mm_ss) & ...
+                isnice(this.Ge_68_Kdpm) & ...
+                isnice(this.MASSSAMPLE_G);
+        end
+        function a = shiftCountTimeToDrawTime(this, a)
+            a = asrow(a);
+            Dt = asrow(seconds(this.TIMECOUNTED_Hh_mm_ss(this.countsTableSelection) - ...
+                               this.TIMEDRAWN_Hh_mm_ss(this.countsTableSelection)));
+            a = a .* 2.^(Dt/this.halflife);
         end
  	end 
 
