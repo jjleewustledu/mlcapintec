@@ -25,13 +25,19 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             import mlcapintec.CapracCalibration
             
             ip = inputParser;
+            ip.KeepUnmatched = true;
             addRequired(ip, 'sesd', @(x) isa(x, 'mlpipeline.ISessionData'))
-            addOptional(ip, 'offset', 1, @isnumeric)
+            addParameter(ip, 'offset', 1, @isnumeric)
+            addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements') || isempty(x))
             parse(ip, sesd, varargin{:})
             ipr = ip.Results;
             
             try
-                rad = mlpet.CCIRRadMeasurements.createFromSession(sesd);
+                if ~isempty(ipr.radMeasurements)
+                    rad = ipr.radMeasurements;
+                else
+                    rad = mlpet.CCIRRadMeasurements.createFromSession(sesd);
+                end
                 this = CapracCalibration('radMeas', rad);
                 
                 % get caprac calibration from most time-proximal calibration measurements
@@ -41,7 +47,7 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             catch ME
                 handwarning(ME)
                 sesd = CapracCalibration.findProximalSession(sesd, ipr.offset);
-                this = CapracCalibration.createFromSession(sesd, ipr.offset+1);                
+                this = CapracCalibration.createFromSession(sesd, 'offset', ipr.offset+1);                
             end
         end
         function ie = invEfficiencyf(varargin)

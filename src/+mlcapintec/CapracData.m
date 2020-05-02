@@ -18,12 +18,13 @@ classdef CapracData < handle & mlpet.AbstractTracerData
  	end
     
     methods (Static)
-        function this = createFromSession(sesd)
+        function this = createFromSession(sesd, varargin)
             assert(isa(sesd, 'mlpipeline.ISessionData'))
             this = mlcapintec.CapracData( ...
                 'isotope', sesd.isotope, ...
                 'tracer', sesd.tracer, ...
-                'datetimeMeasured', sesd.datetime);
+                'datetimeMeasured', sesd.datetime, ...
+                varargin{:});
         end
     end
     
@@ -39,7 +40,12 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             this.radMeasurements.(this.countsTableName_).Ge_68_Kdpm = s;
         end
         function g = get.MASSSAMPLE_G(this)
-            g = this.radMeasurements.(this.countsTableName_).MASSSAMPLE_G;
+            try
+                g = this.radMeasurements.(this.countsTableName_).MASSSAMPLE_G;
+            catch ME
+                handwarning(ME)
+                g = this.radMeasurements.(this.countsTableName_).MassSample_G;
+            end
         end
         function     set.MASSSAMPLE_G(this, s)
             assert(all(isnumeric(s)))
@@ -207,8 +213,19 @@ classdef CapracData < handle & mlpet.AbstractTracerData
  			%% CAPRACDATA
 
  			this = this@mlpet.AbstractTracerData(varargin{:});
+            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements') || isempty(x))
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            
             this.decayCorrected_ = false;
-            this.radMeasurements_ = mlpet.CCIRRadMeasurements.createFromDate(this.datetimeMeasured);
+            if ~isempty(ipr.radMeasurements)
+                this.radMeasurements_ = ipr.radMeasurements;
+            else
+                this.radMeasurements_ = mlpet.CCIRRadMeasurements.createFromDate(this.datetimeMeasured);
+            end
             switch this.tracer_
                 case 'FDG'
                     this.countsTableName_ = 'countsFdg';
