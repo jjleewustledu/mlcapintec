@@ -235,9 +235,15 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                     error('mlcapintec:ValueError', ...
                         'CapracData.countsTablename_->%s is not yet supported', this.countsTablename_)
             end
+            if ~any(this.countsTableSelection)
+                warning('mlcapintec:ValueWarning', ...
+                    'CapracData.ctor():  %s is incomplete', this.countsTableName_)
+                return
+            end
             drawTimes = this.TIMEDRAWN_Hh_mm_ss(this.countsTableSelection);
             this.datetimeMeasured = drawTimes(1) - this.clocksTimeOffsetWrtNTS;
             this.times = seconds(asrow(drawTimes - drawTimes(1)));
+            
         end
         
         function sec = clocksTimeOffsetWrtNTS(this)
