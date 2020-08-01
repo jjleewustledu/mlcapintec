@@ -124,7 +124,8 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 this = this.decayCorrect();
             end
             
-            a = this.activity(varargin{:});            
+            a = this.Ge_68_Kdpm(this.countsTableSelection)*1e3/60;
+            a = asrow(a);          
             assert(all(size(a) == size(this.visibleVolume)))
             a = a ./ this.visibleVolume;
             a = this.shiftCountTimeToDrawTime(a);
