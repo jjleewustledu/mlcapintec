@@ -138,6 +138,8 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             addParameter(ip, 'solvent', 'water', @ischar)
             parse(ip, varargin{:});
             ipr = ip.Results;
+            ipr.ge68 = asrow(ipr.ge68);
+            ipr.mass = asrow(ipr.mass);
         
             ie = this.invEfficiencyf(varargin{:});
             switch ipr.solvent
