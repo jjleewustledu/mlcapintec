@@ -54,6 +54,26 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             ie = CapracCalibration.invEfficiencyf('ge68', ipr.ge68, 'mass', ipr.mass, 'solvent', ipr.solvent) .* ...
                  RefSourceCalibration.invEfficiencyf();            
         end
+        function a = blood2plasma(a, hct, t)
+            assert(isnumeric(a))
+            assert(isscalar(hct))
+            assert(isnumeric(t))            
+            if (hct > 1)
+                hct = hct/100;
+            end
+            lambda_t = mlcapintec.CapracDevice.rbcOverPlasma(t);
+            a = a./(1 + hct*(lambda_t - 1));
+        end        
+        function rop = rbcOverPlasma(t)
+            %% RBCOVERPLASMA is [FDG(RBC)]/[FDG(plasma)]
+            
+            t   = t/60;      % sec -> min
+            a0  = 0.814104;  % FINAL STATS param  a0 mean  0.814192	 std 0.004405
+            a1  = 0.000680;  % FINAL STATS param  a1 mean  0.001042	 std 0.000636
+            a2  = 0.103307;  % FINAL STATS param  a2 mean  0.157897	 std 0.110695
+            tau = 50.052431; % FINAL STATS param tau mean  116.239401	 std 51.979195
+            rop = a0 + a1*t + a2*(1 - exp(-t/tau));
+        end
     end
 
 	methods 
@@ -135,29 +155,6 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
     end 
     
     %% PROTECTED
-    
-    methods (Static, Access = protected)        
-        function a = blood2plasma(a, hct, t)
-            assert(isnumeric(a))
-            assert(isscalar(hct))
-            assert(isnumeric(t))            
-            if (hct > 1)
-                hct = hct/100;
-            end
-            lambda_t = mlcapintec.CapracDevice.rbcOverPlasma(t);
-            a = a./(1 + hct*(lambda_t - 1));
-        end        
-        function rop = rbcOverPlasma(t)
-            %% RBCOVERPLASMA is [FDG(RBC)]/[FDG(plasma)]
-            
-            t   = t/60;      % sec -> min
-            a0  = 0.814104;  % FINAL STATS param  a0 mean  0.814192	 std 0.004405
-            a1  = 0.000680;  % FINAL STATS param  a1 mean  0.001042	 std 0.000636
-            a2  = 0.103307;  % FINAL STATS param  a2 mean  0.157897	 std 0.110695
-            tau = 50.052431; % FINAL STATS param tau mean  116.239401	 std 51.979195
-            rop = a0 + a1*t + a2*(1 - exp(-t/tau));
-        end
-    end
     
     methods (Access = protected)
  		function this = CapracDevice(varargin)
