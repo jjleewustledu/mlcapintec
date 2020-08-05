@@ -31,12 +31,13 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements') || isempty(x))
             parse(ip, sesd, varargin{:})
             ipr = ip.Results;
+            offset = ipr.offset;
             
             try
                 if ~isempty(ipr.radMeasurements)
                     rad = ipr.radMeasurements;
                 else
-                    rad = mlpet.CCIRRadMeasurements.createFromSession(sesd);
+                    rad = mlpet.CCIRRadMeasurements.createFromSession(sesd, 'exactMatch', false);
                 end
                 this = CapracCalibration('radMeas', rad);
                 
@@ -46,8 +47,9 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
                 end
             catch ME
                 handwarning(ME)
-                sesd = CapracCalibration.findProximalSession(sesd, ipr.offset);
-                this = CapracCalibration.createFromSession(sesd, 'offset', ipr.offset+1);                
+                [sesd1,offset] = sesd.findProximalSession2(sesd, offset);
+                varargin1 = [varargin {'offset', offset+1}];
+                this = CapracCalibration.createFromSession(sesd1, varargin1{:});             
             end
         end
         function ie = invEfficiencyf(varargin)

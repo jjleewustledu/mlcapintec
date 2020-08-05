@@ -47,7 +47,7 @@ classdef ApertureCalibration < handle & mlpet.AbstractCalibration
             %  @param required sessionData is an mlpipeline.ISessionData.
             %  See also:  mlpet.CCIRRadMeasurements.createFromSession().
             
-            rad = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
+            rad = mlpet.CCIRRadMeasurements.createFromSession(varargin{:}, 'exactMatch', false);
             this = mlcapintec.ApertureCalibration.createFromRadMeasurements(rad);
         end
         function this = createFromRadMeasurements(rad)
