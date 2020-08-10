@@ -19,7 +19,7 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
         function this = createFromSession(sesd, varargin)
             %% CREATEFROMSESSION
             %  @param required sessionData is an mlpipeline.ISessionData.
-            %  @param optional offset is numeric & searches for alternative SessionData.
+            %  @param exactMatch is logical.  Default is true.  If false, find proximal session & rad meas.
             %  See also:  mlpet.CCIRRadMeasurements.createFromSession().
             
             import mlcapintec.CapracCalibration
@@ -27,29 +27,40 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             ip = inputParser;
             ip.KeepUnmatched = true;
             addRequired(ip, 'sesd', @(x) isa(x, 'mlpipeline.ISessionData'))
-            addParameter(ip, 'offset', 1, @isnumeric)
             addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements') || isempty(x))
+            addParameter(ip, 'exactMatch', true, @islogical)
             parse(ip, sesd, varargin{:})
             ipr = ip.Results;
-            offset = ipr.offset;
-            
-            try
-                if ~isempty(ipr.radMeasurements)
-                    rad = ipr.radMeasurements;
-                else
-                    rad = mlpet.CCIRRadMeasurements.createFromSession(sesd, 'exactMatch', false);
+            rad = ipr.radMeasurements;
+
+            if ipr.exactMatch
+                if isempty(rad)
+                    rad = mlpet.CCIRRadMeasurements.createFromSession(sesd);
                 end
                 this = CapracCalibration('radMeas', rad);
                 
-                % get caprac calibration from most time-proximal calibration measurements
-                if ~this.calibrationAvailable
-                    error('mlcapintec:ValueError', 'CapracCalibration.calibrationAvailable -> false')
+                assert(this.calibrationAvailable, 'mlcapintec.CapracCalibration.calibrationAvailable->false')
+            else
+                if isempty(rad)
+                    rad = mlpet.CCIRRadMeasurements.createFromSession(sesd);
                 end
-            catch ME
-                handwarning(ME)
-                [sesd1,offset] = sesd.findProximalSession2(sesd, offset);
-                varargin1 = [varargin {'offset', offset+1}];
-                this = CapracCalibration.createFromSession(sesd1, varargin1{:});             
+                this = CapracCalibration('radMeas', rad);
+
+                offset = 0;
+                while ~this.calibrationAvailable              
+                    offset = offset + 1;
+                    try
+                        sesd1 = sesd.findProximal(offset);
+                        rad1 = mlpet.CCIRRadMeasurements.createFromSession(sesd1);
+                        this = CapracCalibration('radMeas', rad1);
+                    catch ME
+                        handwarning(ME)
+                        if offset > 100
+                            error('mlcapintec:RuntimeError', ...
+                                'CapracCalibration.createFromSession.offset -> %g', offset)
+                        end
+                    end
+                end
             end
         end
         function ie = invEfficiencyf(varargin)
