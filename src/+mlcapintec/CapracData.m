@@ -191,8 +191,10 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             %  @param Dt is numeric.
             
             assert(isnumeric(Dt))
-            Dt = asrow(Dt);
+            assert(isscalar(this.halflife))
+            assert(isrow(this.datetimeMeasured))
             
+            Dt = asrow(Dt);            
             c = asrow(this.Ge_68_Kdpm);
             this.Ge_68_Kdpm = ascol(c .* 2.^(-Dt/this.halflife));
             c1 = asrow(this.W_01_Kcpm);
