@@ -193,19 +193,21 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             time = [rm.countsFdg.Time_Hh_mm_ss; ...
                     rm.countsOcOo.Time_Hh_mm_ss; ...
                     rm.wellCounter.Time_Hh_mm_ss];
-            counts = [rm.countsFdg.COUNTS_Cpm; ...
-                      rm.countsOcOo.COUNTS_Cpm; ...
-                      rm.wellCounter.COUNTS_Cpm];
-            countsSE = [rm.countsFdg.countsS_E__Cpm; ...
-                        rm.countsOcOo.countsS_E__Cpm; ...
-                        rm.wellCounter.countsS_E__Cpm];
+            counts = [this.ensureMat(rm.countsFdg.COUNTS_Cpm); ...
+                      this.ensureMat(rm.countsOcOo.COUNTS_Cpm); ...
+                      this.ensureMat(rm.wellCounter.COUNTS_Cpm)];
+            countsSE = [this.ensureMat(rm.countsFdg.countsS_E__Cpm); ...
+                        this.ensureMat(rm.countsOcOo.countsS_E__Cpm); ...
+                        this.ensureMat(rm.wellCounter.countsS_E__Cpm)];
             entered = [rm.countsFdg.ENTERED; ...
                        rm.countsOcOo.ENTERED; ...
                        rm.wellCounter.ENTERED];
-            entered  = entered( isnice(time) & isnice(counts));
-            countsSE = countsSE(isnice(time) & isnice(counts));
-            counts   = counts(  isnice(time) & isnice(counts));
-            time     = time(    isnice(time));
+            time_ = time;
+            counts_ = counts;
+            entered  = entered( isnice(time_) & isnice(counts_));
+            countsSE = countsSE(isnice(time_) & isnice(counts_));
+            counts   = counts(  isnice(time_) & isnice(counts_));
+            time     = time(    isnice(time_) & isnice(counts_));
             bg       = table(time, counts, countsSE, entered);
             
             if (any(counts > this.MAX_NORMAL_BACKGROUND))
@@ -227,6 +229,14 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
                 title(sprintf('%s\n%s', wid, wmsg));
             end
             this.background_ = bg;
+        end
+        function n = ensureMat(~, c)
+            if isnumeric(c)
+                n = c;
+                return
+            end
+            c = cellfun(@str2double, c, 'UniformOutput', false);
+            n = cell2mat(c);
         end
     end
 

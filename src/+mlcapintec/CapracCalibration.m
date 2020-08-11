@@ -113,7 +113,7 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
         %%
         
         function a = activity(this, varargin)
-            %% Bq 
+            %% Bq at time of measurement on Caprac
             %  @param mass in g
             %  @param ge68 in kdpm
             %  @param solvent
@@ -140,7 +140,7 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             a = asrow(a);
         end
         function a = activityDensity(this, varargin)
-            %% Bq/mL
+            %% Bq/mL at time of measurement on Caprac
             %  @param mass
             %  @param ge68
             %  @param solvent
