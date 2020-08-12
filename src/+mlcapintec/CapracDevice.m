@@ -117,7 +117,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             end
         end
         function a = activityDensity(this, varargin)
-            %% FDG Bq/mL for whole blood in drawn syringes, with plasma correction, without ref-source calibrations.
+            %% FDG Bq/mL for whole blood in drawn syringes, with plasma correction, with ref-source calibrations.
             %  See also mlcapintec.CapracDevice for implementation of calibrations.   
             %  @param mass is numeric.
             %  @param ge68 is numeric.
