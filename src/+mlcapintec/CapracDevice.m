@@ -27,7 +27,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
     methods (Static)
         function this = createFromSession(varargin)
             data = mlcapintec.CapracData.createFromSession(varargin{:});
-            rm   = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
+            rm   = data.radMeasurements;
             hct  = rm.fromPamStone{'Hct',1};
             hct  = str2double(hct{1});
             this = mlcapintec.CapracDevice( ...
