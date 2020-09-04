@@ -7,6 +7,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
  	%% It was developed on Matlab 9.7.0.1296695 (R2019b) Update 4 for MACI64.  Copyright 2020 John Joowon Lee.
  	
 	properties (Dependent)
+        countsTableSelection
         Ge_68_Kdpm
         MASSSAMPLE_G
  		radMeasurements
@@ -30,8 +31,24 @@ classdef CapracData < handle & mlpet.AbstractTracerData
     
     methods
         
-        %% GET
+        %% GET        
         
+        function g = get.countsTableSelection(this)
+            try
+                if ~isempty(this.countsTableSelection_)
+                    g = this.countsTableSelection_;
+                    return
+                end
+                g = contains(this.TRACER, this.radionuclides_.isotope) & ...
+                    isnice(this.TIMEDRAWN_Hh_mm_ss) & ...
+                    isnice(this.TIMECOUNTED_Hh_mm_ss) & ...
+                    isnice(this.Ge_68_Kdpm) & ...
+                    isnice(this.MASSSAMPLE_G);
+                this.countsTableSelection_ = g;
+            catch ME
+                handexcept(ME)
+            end
+        end
         function g = get.Ge_68_Kdpm(this)
             g = this.radMeasurements.(this.countsTableName_).Ge_68_Kdpm;
         end
@@ -208,6 +225,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
     
     properties (Access = protected)
         countsTableName_
+        countsTableSelection_
         radMeasurements_
     end
 
@@ -257,13 +275,6 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 sec = seconds(this.radMeasurements.clocks.TIMEOFFSETWRTNTS____S('hand timers'));
             end
         end 
-        function tf = countsTableSelection(this)
-            tf = logical(cell2mat(strfind(this.TRACER, this.radionuclides_.isotope))) & ...
-                isnice(this.TIMEDRAWN_Hh_mm_ss) & ...
-                isnice(this.TIMECOUNTED_Hh_mm_ss) & ...
-                isnice(this.Ge_68_Kdpm) & ...
-                isnice(this.MASSSAMPLE_G);
-        end
         function a = shiftCountTimeToDrawTime(this, a)
             a = asrow(a);
             Dt = asrow(seconds(this.TIMECOUNTED_Hh_mm_ss(this.countsTableSelection) - ...
