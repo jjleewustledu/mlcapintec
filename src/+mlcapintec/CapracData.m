@@ -248,9 +248,9 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 this.radMeasurements_ = mlpet.CCIRRadMeasurements.createFromDate(this.datetimeMeasured);
             end
             switch this.tracer_
-                case 'FDG'
+                case {'FDG' 'HO'}
                     this.countsTableName_ = 'countsFdg';
-                case {'OC' 'OO'}
+                case {'CO' 'OC' 'OO'}
                     this.countsTableName_ = 'countsOcOo';
                 otherwise
                     error('mlcapintec:ValueError', ...
