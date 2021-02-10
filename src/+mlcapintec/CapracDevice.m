@@ -21,6 +21,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
         background
         calibrationAvailable
         convertToPlasma
+        Dt
         hct
     end
     
@@ -92,6 +93,13 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
         function     set.convertToPlasma(this, s)
             assert(islogical(s))
             this.convertToPlasma_ = s;
+        end
+        function g = get.Dt(this)
+            g = this.Dt_;
+        end
+        function     set.Dt(this, s)
+            assert(isscalar(s))
+            this.Dt_ = s;
         end
         function g = get.hct(this)
             g = this.hct_;
@@ -178,6 +186,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
     properties (Access = private)
         background_  
         convertToPlasma_
+        Dt_
         hct_
     end
     
