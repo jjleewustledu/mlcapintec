@@ -14,6 +14,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
  	
 	properties (Constant)
         CS_RESCALING = 1.204 % empirical estimate for comparisons with [68Ge]
+        deconvCatheter = false
  		MAX_NORMAL_BACKGROUND = 300 % cpm
     end
     
