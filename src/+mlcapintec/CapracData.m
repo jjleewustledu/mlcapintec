@@ -203,11 +203,15 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 this.decayCorrected_ = false;
             end
         end
-        function this = shiftWorldlines(this, Dt)
+        function this = shiftWorldlines(this, Dt, varargin)
             %% shifts worldline of internal data self-consistently
-            %  @param Dt is numeric.
+            %  @param required Dt is scalar:  timeShift > 0 shifts into future; timeShift < 0 shifts into past.
+            %  @param shiftDatetimeMeasured is logical.
             
-            assert(isnumeric(Dt))
+            ip = inputParser;
+            addRequired(ip, 'Dt', @isscalar)
+            addParameter(ip, 'shiftDatetimeMeasured', true, @islogical)
+            parse(ip, Dt, varargin{:})
             assert(isscalar(this.halflife))
             assert(isrow(this.datetimeMeasured))
             
@@ -217,7 +221,9 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             c1 = asrow(this.W_01_Kcpm);
             this.W_01_Kcpm = ascol(c1 .* 2.^(-Dt/this.halflife));
             
-            this.datetimeMeasured = this.datetimeMeasured + seconds(Dt);
+            if ip.Results.shiftDatetimeMeasured
+                this.datetimeMeasured = this.datetimeMeasured + seconds(Dt);
+            end
         end
     end
     
