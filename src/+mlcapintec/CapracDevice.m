@@ -47,6 +47,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             import mlcapintec.RefSourceCalibration
             
             ip = inputParser;
+            ip.KeepUnmatched = true;
             addParameter(ip, 'ge68', NaN, @isnumeric)
             addParameter(ip, 'mass', NaN, @isnumeric)
             addParameter(ip, 'solvent', 'blood', @ischar)
