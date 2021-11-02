@@ -15,7 +15,6 @@ classdef Test_Caprac < matlab.unittest.TestCase
 
 	properties
         doseAdminDatetimeFDG = datetime(2016,9,23,12,43,52, 'TimeZone', 'America/Chicago');
-        ccirRadMeasurementsDir = fullfile(getenv('HOME'), 'Documents/private')
         mand
  		registry
         sessd
@@ -82,7 +81,6 @@ classdef Test_Caprac < matlab.unittest.TestCase
  	methods (TestClassSetup)
 		function setupCaprac(this)
  			import mlcapintec.*;                    
-            setenv('CCIR_RAD_MEASUREMENTS_DIR', this.ccirRadMeasurementsDir);
             this.sessd = mlraichle.SessionData.create(this.sessp);
             this.mand = mlpet.CCIRRadMeasurements.createFromSession(this.sessd);
  			this.testObj_ = Caprac( ...
