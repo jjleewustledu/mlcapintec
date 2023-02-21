@@ -43,7 +43,7 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
             rm = this.testObj.radMeasurements;
             this.verifyClass(rm, 'mlpet.CCIRRadMeasurements')
             this.verifyTrue(isprop(rm, 'countsFdg'))
-            this.verifyTrue(isprop(rm, 'fromPamStone'))
+            this.verifyTrue(isprop(rm, 'laboratory'))
             this.verifyTrue(isprop(rm, 'mMR'))
             this.verifyTrue(isprop(rm, 'phantom'))
             this.verifyTrue(isprop(rm, 'clocks'))

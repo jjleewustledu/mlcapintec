@@ -26,7 +26,7 @@ classdef CapracCalibration < handle & mlpet.AbstractCalibration
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addRequired(ip, 'sesd', @(x) isa(x, 'mlpipeline.ISessionData'))
+            addRequired(ip, 'sesd', @(x) isa(x, 'mlpipeline.ISessionData') || isa(x, 'mlpipeline.ImagingMediator'))
             addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements') || isempty(x))
             addParameter(ip, 'exactMatch', true, @islogical)
             parse(ip, sesd, varargin{:})

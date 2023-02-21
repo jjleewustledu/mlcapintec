@@ -22,15 +22,17 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
         background
         calibrationAvailable
         convertToPlasma
+        countsTableSelection
         Dt
         hct
+        isWholeBlood
     end
     
     methods (Static)
         function this = createFromSession(varargin)
             data = mlcapintec.CapracData.createFromSession(varargin{:});
             rm   = data.radMeasurements;
-            hct  = rm.fromPamStone{'Hct',1};
+            hct  = rm.laboratory{'Hct',1};
             %hct  = str2double(hct{1});
             this = mlcapintec.CapracDevice( ...
                 'calibration', mlcapintec.CapracCalibration.createFromSession(varargin{:}), ...
@@ -96,6 +98,9 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             assert(islogical(s))
             this.convertToPlasma_ = s;
         end
+        function g = get.countsTableSelection(this)
+            g = this.data_.countsTableSelection;
+        end
         function g = get.Dt(this)
             g = this.Dt_;
         end
@@ -105,6 +110,9 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
         end
         function g = get.hct(this)
             g = this.hct_;
+        end
+        function g = get.isWholeBlood(this)
+            g = this.data_.isWholeBlood;
         end
         
         %%        
@@ -146,6 +154,15 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             if this.convertToPlasma_
                 a = blood2plasma(a, this.hct, this.data_.times);
             end
+        end
+        function [a1,t1] = activityDensityInterp1(this, varargin)            
+            t = this.times;
+            t = t(this.isWholeBlood');
+            a = this.activityDensity();
+            a = a(this.isWholeBlood');
+
+            t1 = t(1):1:t(end);
+            a1 = interp1(t, a, t1);            
         end
         function c = countRate(this, varargin)
             %% FDG cps in drawn syringes, without plasma correction, without ref-source calibrations.

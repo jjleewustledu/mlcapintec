@@ -7,8 +7,10 @@ classdef CapracData < handle & mlpet.AbstractTracerData
  	%% It was developed on Matlab 9.7.0.1296695 (R2019b) Update 4 for MACI64.  Copyright 2020 John Joowon Lee.
  	
 	properties (Dependent)
+        COMMENTS
         countsTableSelection
         Ge_68_Kdpm
+        isWholeBlood
         MASSSAMPLE_G
  		radMeasurements
         TIMECOUNTED_Hh_mm_ss
@@ -20,7 +22,8 @@ classdef CapracData < handle & mlpet.AbstractTracerData
     
     methods (Static)
         function this = createFromSession(sesd, varargin)
-            assert(isa(sesd, 'mlpipeline.ISessionData'))
+            assert(isa(sesd, 'mlpipeline.ISessionData') || ...
+                isa(sesd, 'mlpipeline.ImagingMediator'))
             this = mlcapintec.CapracData( ...
                 'isotope', sesd.isotope, ...
                 'tracer', sesd.tracer, ...
@@ -33,18 +36,27 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         
         %% GET        
         
+        function g = get.COMMENTS(this)
+            g = this.radMeasurements.(this.countsTableName_).COMMENTS;
+        end
         function g = get.countsTableSelection(this)
             try
                 if ~isempty(this.countsTableSelection_)
                     g = this.countsTableSelection_;
                     return
                 end
+
                 g = contains(this.TRACER, this.radionuclides_.isotope) & ...
                     isnice(this.TIMEDRAWN_Hh_mm_ss) & ...
                     isnice(this.TIMECOUNTED_Hh_mm_ss) & ...
                     isnice(this.Ge_68_Kdpm) & ...
                     isnice(this.MASSSAMPLE_G);
                 this.countsTableSelection_ = g;
+
+                if contains(this.TRACER, 'fdg', IgnoreCase=true)
+                    g = g(this.isWholeBlood);
+                    this.countsTableSelection_ = g;
+                end
             catch ME
                 handexcept(ME)
             end
@@ -55,6 +67,9 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         function     set.Ge_68_Kdpm(this, s)
             assert(all(isnumeric(s)))
             this.radMeasurements.(this.countsTableName_).Ge_68_Kdpm = s;
+        end
+        function g = get.isWholeBlood(this)
+            g = ~contains(this.COMMENTS(this.countsTableSelection), 'plasma', IgnoreCase=true);
         end
         function g = get.MASSSAMPLE_G(this)
             try
@@ -91,7 +106,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         function     set.W_01_Kcpm(this, s)
             assert(all(isnumeric(s)))
             this.radMeasurements.(this.countsTableName_).W_01_Kcpm = s;
-        end        
+        end   
         
         %% 
         
@@ -253,14 +268,14 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             else
                 this.radMeasurements_ = mlpet.CCIRRadMeasurements.createFromDate(this.datetimeMeasured);
             end
-            switch this.tracer_
-                case {'FDG' 'HO'}
+            switch lower(this.tracer_)
+                case {'fdg' 'ho' 'oh'}
                     this.countsTableName_ = 'countsFdg';
-                case {'CO' 'OC' 'OO'}
+                case {'co' 'oc' 'oo'}
                     this.countsTableName_ = 'countsOcOo';
                 otherwise
                     error('mlcapintec:ValueError', ...
-                        'CapracData.countsTablename_->%s is not yet supported', this.countsTablename_)
+                        'CapracData.countsTablename_->%s is not yet supported', this.countsTableName_)
             end
             if ~any(this.countsTableSelection)
                 warning('mlcapintec:ValueWarning', ...
