@@ -21,7 +21,6 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
     properties (Dependent)
         background
         calibrationAvailable
-        convertToPlasma
         countsTableSelection
         Dt
         hct
@@ -59,44 +58,17 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             ie = CapracCalibration.invEfficiencyf('ge68', ipr.ge68, 'mass', ipr.mass, 'solvent', ipr.solvent) .* ...
                  RefSourceCalibration.invEfficiencyf();            
         end
-        function a = blood2plasma(a, hct, t)
-            assert(isnumeric(a))
-            assert(isscalar(hct))
-            assert(isnumeric(t))            
-            if (hct > 1)
-                hct = hct/100;
-            end
-            lambda_t = mlcapintec.CapracDevice.rbcOverPlasma(t);
-            a = a./(1 + hct*(lambda_t - 1));
-        end        
-        function rop = rbcOverPlasma(t)
-            %% RBCOVERPLASMA is [FDG(RBC)]/[FDG(plasma)]
-            
-            t   = t/60;      % sec -> min
-            a0  = 0.814104;  % FINAL STATS param  a0 mean  0.814192	 std 0.004405
-            a1  = 0.000680;  % FINAL STATS param  a1 mean  0.001042	 std 0.000636
-            a2  = 0.103307;  % FINAL STATS param  a2 mean  0.157897	 std 0.110695
-            tau = 50.052431; % FINAL STATS param tau mean  116.239401	 std 51.979195
-            rop = a0 + a1*t + a2*(1 - exp(-t/tau));
-        end
     end
 
 	methods 
         
-        %% GET
+        %% GET/SET
         
         function g = get.background(this)
             g = this.background_;
         end
         function g = get.calibrationAvailable(this)
             g = this.calibration_.calibrationAvailable;
-        end
-        function g = get.convertToPlasma(this)
-            g = this.convertToPlasma_;
-        end
-        function     set.convertToPlasma(this, s)
-            assert(islogical(s))
-            this.convertToPlasma_ = s;
         end
         function g = get.countsTableSelection(this)
             g = this.data_.countsTableSelection;
@@ -125,14 +97,10 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             %  @param solvent is in {'water' 'plasma' 'blood'}.
             %  @return activity (Bq).
             
-            import mlcapintec.CapracDevice.blood2plasma
-            
-            a     = this.data_.activity(varargin{:});
+            a = this.data_.activity(varargin{:});
             [g,m] = this.data_.activity_kdpm(varargin{:});
-            a     = a .* this.invEfficiencyf('ge68', g, 'mass', m, varargin{:});
-            if this.convertToPlasma_
-                a = blood2plasma(a, this.hct, this.data_.times);
-            end
+            a = a .* this.invEfficiencyf('ge68', g, 'mass', m, varargin{:});
+            a = this.blood2plasma(a, this.data_.times, this.hct);
         end
         function a = activityDensity(this, varargin)
             %% FDG Bq/mL for whole blood in drawn syringes, with plasma correction, with ref-source calibrations.
@@ -146,20 +114,16 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             %  @param indexF.
             %  @return activity density (Bq/mL).
             
-            import mlcapintec.CapracDevice.blood2plasma
-                        
-            a     = this.data_.activityDensity(varargin{:});
+            a = this.data_.activityDensity(varargin{:});
             [g,m] = this.data_.activity_kdpm(varargin{:});
-            a     = a .* this.invEfficiencyf('ge68', g, 'mass', m, varargin{:});
-            if this.convertToPlasma_
-                a = blood2plasma(a, this.hct, this.data_.times);
-            end
+            a = a .* this.invEfficiencyf('ge68', g, 'mass', m, varargin{:});
+            a = this.blood2plasma(a, this.data_.times, this.hct);
         end
         function [a1,t1] = activityDensityInterp1(this, varargin)            
             t = this.times;
-            t = t(this.isWholeBlood');
+            %t = t(this.isWholeBlood');
             a = this.activityDensity();
-            a = a(this.isWholeBlood');
+            %a = a(this.isWholeBlood');
 
             t1 = t(1):1:t(end);
             a1 = interp1(t, a, t1);            
@@ -192,10 +156,8 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'convertToPlasma', true, @islogical)
             addParameter(ip, 'hct', 45, @isscalar)
             parse(ip, varargin{:});
-            this.convertToPlasma_ = ip.Results.convertToPlasma;
             this.hct_ = ip.Results.hct;
         end
     end
@@ -204,7 +166,6 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
     
     properties (Access = private)
         background_  
-        convertToPlasma_
         Dt_
         hct_
     end

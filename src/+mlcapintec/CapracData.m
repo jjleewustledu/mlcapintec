@@ -53,8 +53,8 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                     isnice(this.MASSSAMPLE_G);
                 this.countsTableSelection_ = g;
 
-                if contains(this.TRACER, 'fdg', IgnoreCase=true)
-                    g = g(this.isWholeBlood);
+                if contains(this.tracer, 'fdg', IgnoreCase=true)
+                    g = g & this.isWholeBlood;
                     this.countsTableSelection_ = g;
                 end
             catch ME
@@ -69,7 +69,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             this.radMeasurements.(this.countsTableName_).Ge_68_Kdpm = s;
         end
         function g = get.isWholeBlood(this)
-            g = ~contains(this.COMMENTS(this.countsTableSelection), 'plasma', IgnoreCase=true);
+            g = ~contains(this.COMMENTS, 'plasma', IgnoreCase=true);
         end
         function g = get.MASSSAMPLE_G(this)
             try
@@ -283,9 +283,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
                 return
             end
             drawTimes = this.TIMEDRAWN_Hh_mm_ss(this.countsTableSelection);
-            this.datetimeMeasured = drawTimes(1) - this.clocksTimeOffsetWrtNTS;
-            this.times = seconds(asrow(drawTimes - drawTimes(1)));
-            
+            this.times = seconds(asrow(drawTimes - this.datetimeMeasured));            
         end
         
         function sec = clocksTimeOffsetWrtNTS(this)

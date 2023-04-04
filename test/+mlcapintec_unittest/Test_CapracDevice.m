@@ -88,12 +88,10 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
         end
         function test_activity(this)
             o = this.testObj;
-            o.convertToPlasma = true;
             plot(o, 'this.datetime', 'this.activity')
         end
         function test_activityDensity(this)
             o = this.testObj;
-            o.convertToPlasma = true;
             this.verifyEqual(o.datetimes(1), datetime(2019,5,23,13,30,12, 'TimeZone', 'America/Chicago'))
             this.verifyEqual(o.datetimes(end), datetime(2019,5,23,14,30,9, 'TimeZone', 'America/Chicago'))
             this.verifyEqual(o.times, ...
@@ -120,7 +118,6 @@ classdef Test_CapracDevice < matlab.unittest.TestCase
  	methods (TestMethodSetup)
 		function setupCapracDeviceTest(this)
  			this.testObj = mlcapintec.CapracDevice.createFromSession(this.sessd);
-            this.testObj.convertToPlasma = false;
  			this.addTeardown(@this.cleanTestMethod);
  		end
 	end
