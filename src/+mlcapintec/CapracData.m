@@ -18,24 +18,9 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         TRACER
         visibleVolume % vector for syringe containing whole blood        
         W_01_Kcpm
- 	end
-    
-    methods (Static)
-        function this = createFromSession(sesd, varargin)
-            assert(isa(sesd, 'mlpipeline.ISessionData') || ...
-                isa(sesd, 'mlpipeline.ImagingMediator'))
-            this = mlcapintec.CapracData( ...
-                'isotope', sesd.isotope, ...
-                'tracer', sesd.tracer, ...
-                'datetimeMeasured', sesd.datetime, ...
-                varargin{:});
-        end
     end
     
-    methods
-        
-        %% GET        
-        
+    methods %% GET
         function g = get.COMMENTS(this)
             g = this.radMeasurements.(this.countsTableName_).COMMENTS;
         end
@@ -106,10 +91,10 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         function     set.W_01_Kcpm(this, s)
             assert(all(isnumeric(s)))
             this.radMeasurements.(this.countsTableName_).W_01_Kcpm = s;
-        end   
-        
-        %% 
-        
+        end
+    end
+
+    methods
         function a = activity(this, varargin)
             %% FDG Bq for whole blood in drawn syringes, without Caprac calibrations.
             %  See also mlcapintec.CapracDevice for implementation of calibrations.
@@ -118,6 +103,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             a = this.Ge_68_Kdpm(this.countsTableSelection)*1e3/60;
             a = asrow(a);
             a = this.shiftCountTimeToDrawTime(a);
+            a = a/this.branchingRatio;
         end
         function [a,m] = activity_kdpm(this, varargin)
             %% FDG kdpm for whole blood in measured syringes, without Caprac calibrations.
@@ -126,6 +112,8 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             
             a = this.Ge_68_Kdpm(this.countsTableSelection);
             a = asrow(a);
+            a = a/this.branchingRatio;
+
             m = this.MASSSAMPLE_G(this.countsTableSelection);     
             m = asrow(m);
             assert(all(size(a) == size(m)))
@@ -142,25 +130,28 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'decayCorrected', false, @islogical)
-            addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isnat(x) || isdatetime(x))
+            addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
             addParameter(ip, 'indexF', this.indexF, @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
-            if isdatetime(ipr.datetimeForDecayCorrection) && ...
-                    ~isnat(ipr.datetimeForDecayCorrection)
+            if ~isnat(ipr.datetimeForDecayCorrection)
                 this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
-            end  
+            end 
             if ipr.decayCorrected && ~this.decayCorrected
-                this = this.decayCorrect();
+                this.decayCorrect(); % handle
+                this.decayCorrected_ = true;
             end
-            
+            if ~ipr.decayCorrected && this.decayCorrected
+                this.decayUncorrect(); % handle
+                this.decayCorrected_ = false;
+            end            
             a = this.Ge_68_Kdpm(this.countsTableSelection)*1e3/60;
-            a = asrow(a);          
-            assert(all(size(a) == size(this.visibleVolume)))
+            a = asrow(a);
             a = a ./ this.visibleVolume;
             a = this.shiftCountTimeToDrawTime(a);
+            a = a/this.branchingRatio;
         end
         function c = countRate(this, varargin)
             %% FDG cps for whole blood in drawn syringes, without Caprac calibrations.
@@ -173,24 +164,28 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'decayCorrected', false, @islogical)
-            addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isnat(x) || isdatetime(x))
+            addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
             addParameter(ip, 'indexF', this.indexF, @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
-            if isdatetime(ipr.datetimeForDecayCorrection) && ...
-                    ~isnat(ipr.datetimeForDecayCorrection)
+            if ~isnat(ipr.datetimeForDecayCorrection)
                 this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
-            end  
-            if ipr.decayCorrected && ~this.decayCorrected
-                this = this.decayCorrect();
             end
-            
+            if ipr.decayCorrected && ~this.decayCorrected
+                this.decayCorrect(); % handle
+                this.decayCorrected_ = true;
+            end
+            if ~ipr.decayCorrected && this.decayCorrected
+                this.decayUncorrect(); % handle
+                this.decayCorrected_ = false;
+            end            
             c = this.W_01_Kcpm(this.countsTableSelection);
             c = c*1e3/60;
             c = asrow(c);
             c = this.shiftCountTimeToDrawTime(c);
+            %c = c/this.branchingRatio;
         end
         function this = decayCorrect(this)
             if ~this.decayCorrected                
@@ -239,6 +234,18 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             if ip.Results.shiftDatetimeMeasured
                 this.datetimeMeasured = this.datetimeMeasured + seconds(Dt);
             end
+        end
+    end
+    
+    methods (Static)
+        function this = createFromSession(sesd, varargin)
+            assert(isa(sesd, 'mlpipeline.ISessionData') || ...
+                isa(sesd, 'mlpipeline.ImagingMediator'))
+            this = mlcapintec.CapracData( ...
+                'isotope', sesd.isotope, ...
+                'tracer', sesd.tracer, ...
+                'datetimeMeasured', sesd.datetime, ...
+                varargin{:});
         end
     end
     
