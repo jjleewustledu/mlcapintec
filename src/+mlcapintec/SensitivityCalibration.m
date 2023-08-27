@@ -213,9 +213,6 @@ classdef SensitivityCalibration < handle & mlpet.AbstractCalibration
         end
         
  		function this = SensitivityCalibration(varargin)
- 			%% SENSITIVITYCALIBRATION
- 			%  @param .
-
  			this = this@mlpet.AbstractCalibration(varargin{:});
  		end
     end

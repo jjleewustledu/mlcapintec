@@ -255,8 +255,6 @@ classdef ApertureCalibration < handle & mlpet.AbstractCalibration
         end
 		  
  		function this = ApertureCalibration(varargin)
- 			%% APERTURECALIBRATION
-
             this = this@mlpet.AbstractCalibration(varargin{:});
  		end
     end

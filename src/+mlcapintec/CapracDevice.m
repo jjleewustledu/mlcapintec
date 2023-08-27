@@ -119,7 +119,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             a = a .* this.invEfficiencyf('ge68', g, 'mass', m, varargin{:});
             a = this.blood2plasma(a, this.data_.times, this.hct);
         end
-        function [a1,t1] = activityDensityInterp1(this, varargin)            
+        function [a1,t1] = activityDensityInterp1(this, varargin)
             t = this.times;
             %t = t(this.isWholeBlood');
             a = this.activityDensity();
