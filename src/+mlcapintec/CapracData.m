@@ -120,16 +120,14 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         end
         function a = activityDensity(this, varargin)
             %% FDG Bq/mL for whole blood in drawn syringes, without Caprac calibrations.
-            %  See also mlcapintec.CapracDevice for implementation of calibrations.            
-            %  @param decayCorrected, default := false.
+            %  See also mlcapintec.CapracDevice for implementation of calibrations. 
  			%  @param datetimeForDecayCorrection updates internal.
             %  @param index0.
             %  @param indexF.
             %  @return activity density (Bq/mL).
             
             ip = inputParser;
-            ip.KeepUnmatched = true;
-            addParameter(ip, 'decayCorrected', false, @islogical)
+            ip.KeepUnmatched = true;D
             addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
             addParameter(ip, 'indexF', this.indexF, @isnumeric)
@@ -138,15 +136,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             
             if ~isnat(ipr.datetimeForDecayCorrection)
                 this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
-            end 
-            if ipr.decayCorrected && ~this.decayCorrected
-                this.decayCorrect(); % handle
-                this.decayCorrected_ = true;
-            end
-            if ~ipr.decayCorrected && this.decayCorrected
-                this.decayUncorrect(); % handle
-                this.decayCorrected_ = false;
-            end            
+            end           
             a = this.Ge_68_Kdpm(this.countsTableSelection)*1e3/60;
             a = asrow(a);
             a = a ./ this.visibleVolume;
@@ -155,7 +145,6 @@ classdef CapracData < handle & mlpet.AbstractTracerData
         end
         function c = countRate(this, varargin)
             %% FDG cps for whole blood in drawn syringes, without Caprac calibrations.
-            %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
             %  @param index0.
             %  @param indexF.
@@ -163,7 +152,6 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'decayCorrected', false, @islogical)
             addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
             addParameter(ip, 'indexF', this.indexF, @isnumeric)
@@ -173,14 +161,6 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             if ~isnat(ipr.datetimeForDecayCorrection)
                 this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
             end
-            if ipr.decayCorrected && ~this.decayCorrected
-                this.decayCorrect(); % handle
-                this.decayCorrected_ = true;
-            end
-            if ~ipr.decayCorrected && this.decayCorrected
-                this.decayUncorrect(); % handle
-                this.decayCorrected_ = false;
-            end            
             c = this.W_01_Kcpm(this.countsTableSelection);
             c = c*1e3/60;
             c = asrow(c);
@@ -270,6 +250,7 @@ classdef CapracData < handle & mlpet.AbstractTracerData
             ipr = ip.Results;
             
             this.decayCorrected_ = false;
+            
             if ~isempty(ipr.radMeasurements)
                 this.radMeasurements_ = ipr.radMeasurements;
             else
