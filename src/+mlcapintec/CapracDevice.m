@@ -122,7 +122,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
         function [a1,t1] = activityDensityInterp1(this, varargin)
             t = this.times;
             %t = t(this.isWholeBlood');
-            a = this.activityDensity();
+            a = this.activityDensity(varargin{:});
             %a = a(this.isWholeBlood');
 
             t1 = t(1):1:t(end);
