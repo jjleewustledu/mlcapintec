@@ -10,21 +10,21 @@ classdef (Sealed) CapracKit < handle & mlkinetics.InputFuncKit
             if isempty(this.device_)
                 do_make_device(this);
             end
-            a = this.device_.activity();
+            a = this.device_.activity(varargin{:});
             ic = this.do_make_input_func(a);
         end
         function ic = do_make_activity_density(this, varargin)
             if isempty(this.device_)
                 do_make_device(this);
             end
-            a = this.device_.activityDensity();
+            a = this.device_.activityDensity(varargin{:});
             ic = this.do_make_input_func(a);
         end
         function ic = do_make_activity_density_interp1(this, varargin)
             if isempty(this.device_)
                 do_make_device(this);
             end
-            a = this.device_.activityDensityInterp1();
+            a = this.device_.activityDensityInterp1(varargin{:});
             ic = this.do_make_input_func(a);
         end
         function dev = do_make_device(this, varargin)
