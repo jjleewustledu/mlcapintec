@@ -100,7 +100,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             a = this.data_.activity(varargin{:});
             [g,m] = this.data_.activity_kdpm(varargin{:});
             a = a .* this.invEfficiencyf('ge68', g, 'mass', m, varargin{:});
-            a = this.wb2plasma(a, this.hct, this.data_.times); % applies only to FDG
+            %a = this.wb2plasma(a, this.hct, this.data_.times); % applies only to FDG
         end
         function a = activityDensity(this, varargin)
             %% FDG Bq/mL for whole blood in drawn syringes, with plasma correction, with ref-source calibrations.
@@ -117,7 +117,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             a = this.data_.activityDensity(varargin{:});
             [g,m] = this.data_.activity_kdpm(varargin{:});
             a = a .* this.invEfficiencyf('ge68', g, 'mass', m, varargin{:});
-            a = this.wb2plasma(a, this.hct, this.data_.times); % applies only to FDG
+            %a = this.wb2plasma(a, this.hct, this.data_.times); % applies only to FDG
         end
         function [a1,t1] = activityDensityInterp1(this, varargin)
             t = this.times;
