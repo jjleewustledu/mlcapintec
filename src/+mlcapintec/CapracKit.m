@@ -74,15 +74,17 @@ classdef (Sealed) CapracKit < handle & mlkinetics.InputFuncKit
 
     methods (Static)
         function this = instance(varargin)
-            persistent uniqueInstance
-            if (isempty(uniqueInstance))
-                this = mlkinetics.CapracKit();
-                this.install_input_func(varargin{:})
-                uniqueInstance = this;
-            else
-                this = uniqueInstance;
-                this.install_input_func(varargin{:})
-            end
+            this = mlkinetics.CapracKit();
+            this.install_input_func(varargin{:})
+            % persistent uniqueInstance
+            % if (isempty(uniqueInstance))
+            %     this = mlkinetics.CapracKit();
+            %     this.install_input_func(varargin{:})
+            %     uniqueInstance = this;
+            % else
+            %     this = uniqueInstance;
+            %     this.install_input_func(varargin{:})
+            % end
         end
     end 
 
