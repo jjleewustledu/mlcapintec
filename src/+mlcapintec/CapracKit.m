@@ -104,14 +104,14 @@ classdef (Sealed) CapracKit < handle & mlkinetics.InputFuncKit
                 this mlcapintec.CapracKit
                 opts.alignToScanner logical = false
                 opts.sameWorldline logical = false
+                opts.reference_device = this.scanner_kit_.do_make_device()
             end
             med = this.bids_kit_.make_bids_med();
-            scanner_dev = this.scanner_kit_.do_make_device();
             
             input_func_dev = mlcapintec.CapracDevice.createFromSession(med);
             if ~isempty(scanner_dev) && opts.alignToScanner
                 input_func_dev = this.scanner_kit_.alignArterialToScanner( ...
-                    input_func_dev, scanner_dev, 'sameWorldline', opts.sameWorldline);
+                    input_func_dev, opts.reference_device, 'sameWorldline', opts.sameWorldline);
             end
         end
         function this = CapracKit()
