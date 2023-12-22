@@ -1,4 +1,4 @@
-classdef CapracDevice < handle & mlpet.AbstractDevice
+classdef CapracDevice < handle & mlpet.InputFuncDevice
 	%% CAPRACDEVICE  
     %  1/22/2016
     %  4/8/2016
@@ -14,8 +14,11 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
  	
 	properties (Constant)
         CS_RESCALING = 1.204 % empirical estimate for comparisons with [68Ge]
-        deconvCatheter = false
  		MAX_NORMAL_BACKGROUND = 300 % cpm
+    end
+
+    properties
+        deconvCatheter = false
     end
     
     properties (Dependent)
@@ -25,39 +28,6 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
         Dt
         hct
         isWholeBlood
-    end
-    
-    methods (Static)
-        function this = createFromSession(varargin)
-            data = mlcapintec.CapracData.createFromSession(varargin{:});
-            rm   = data.radMeasurements;
-            hct  = rm.laboratory{'Hct',1};
-            %hct  = str2double(hct{1});
-            this = mlcapintec.CapracDevice( ...
-                'calibration', mlcapintec.CapracCalibration.createFromSession(varargin{:}), ...
-                'data', data, ...
-                'hct', hct);
-        end
-        function ie = invEfficiencyf(varargin)
-            %% INVEFFICIENCYF     
-            %  @param ge68 is numeric.
-            %  @param mass is numeric.
-            %  @param solvent is in {'water' 'plasma' 'blood'}.  Default := 'blood'.
-            
-            import mlcapintec.CapracCalibration
-            import mlcapintec.RefSourceCalibration
-            
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addParameter(ip, 'ge68', NaN, @isnumeric)
-            addParameter(ip, 'mass', NaN, @isnumeric)
-            addParameter(ip, 'solvent', 'blood', @ischar)
-            parse(ip, varargin{:});
-            ipr = ip.Results;
-            
-            ie = CapracCalibration.invEfficiencyf('ge68', ipr.ge68, 'mass', ipr.mass, 'solvent', ipr.solvent) .* ...
-                 RefSourceCalibration.invEfficiencyf();            
-        end
     end
 
 	methods 
@@ -151,7 +121,7 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
  		function this = CapracDevice(varargin)
  			%% CAPRACDEVICE
 
-            this = this@mlpet.AbstractDevice(varargin{:});  
+            this = this@mlpet.InputFuncDevice(varargin{:});  
             this = this.checkBackgroundMeasurements;
             
             ip = inputParser;
@@ -159,6 +129,39 @@ classdef CapracDevice < handle & mlpet.AbstractDevice
             addParameter(ip, 'hct', 45, @isscalar)
             parse(ip, varargin{:});
             this.hct_ = ip.Results.hct;
+        end
+    end
+    
+    methods (Static)
+        function this = createFromSession(varargin)
+            data = mlcapintec.CapracData.createFromSession(varargin{:});
+            rm   = data.radMeasurements;
+            hct  = rm.laboratory{'Hct',1};
+            %hct  = str2double(hct{1});
+            this = mlcapintec.CapracDevice( ...
+                'calibration', mlcapintec.CapracCalibration.createFromSession(varargin{:}), ...
+                'data', data, ...
+                'hct', hct);
+        end
+        function ie = invEfficiencyf(varargin)
+            %% INVEFFICIENCYF     
+            %  @param ge68 is numeric.
+            %  @param mass is numeric.
+            %  @param solvent is in {'water' 'plasma' 'blood'}.  Default := 'blood'.
+            
+            import mlcapintec.CapracCalibration
+            import mlcapintec.RefSourceCalibration
+            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'ge68', NaN, @isnumeric)
+            addParameter(ip, 'mass', NaN, @isnumeric)
+            addParameter(ip, 'solvent', 'blood', @ischar)
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            
+            ie = CapracCalibration.invEfficiencyf('ge68', ipr.ge68, 'mass', ipr.mass, 'solvent', ipr.solvent) .* ...
+                 RefSourceCalibration.invEfficiencyf();            
         end
     end
     
