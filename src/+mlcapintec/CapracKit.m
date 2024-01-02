@@ -41,6 +41,11 @@ classdef (Sealed) CapracKit < handle & mlkinetics.InputFuncKit
             ic = this.do_make_input_func(a);
         end
         function dev = do_make_device(this, varargin)
+            if ~isempty(this.device_)
+                dev = this.device_;
+                return
+            end
+
             this.device_ = this.buildCountingDevice(varargin{:});
             dev = this.device_;
         end
@@ -59,16 +64,23 @@ classdef (Sealed) CapracKit < handle & mlkinetics.InputFuncKit
             if isempty(this.device_)
                 do_make_device(this);
             end
+
+            if ~isempty(this.input_func_ic_)
+                ic = this.input_func_ic_;
+                return
+            end
+
             med = this.bids_kit_.make_bids_med();
             ifc = copy(med.imagingFormat);
             ifc.img = measurement;
-            ifc.fileprefix = sprintf("%s_%s", ifc.fileprefix, stackstr(3));
+            ifc.fqfp = this.device_.new_fqfp();
             ifc.json_metadata.taus = this.device_.taus;
             ifc.json_metadata.times = this.device_.times;
             ifc.json_metadata.timesMid = this.device_.timesMid;
             ifc.json_metadata.timeUnit = "second";
-            this.input_func_ic_ = mlfourd.ImagingContext2(ifc);
-            ic = this.input_func_ic_;
+            ic = mlfourd.ImagingContext2(ifc);
+            %ic.addJsonMetadata(opts);
+            this.input_func_ic_ = ic;
         end
     end
 
@@ -104,14 +116,24 @@ classdef (Sealed) CapracKit < handle & mlkinetics.InputFuncKit
                 this mlcapintec.CapracKit
                 opts.alignToScanner logical = false
                 opts.sameWorldline logical = false
-                opts.reference_device = this.scanner_kit_.do_make_device()
+                opts.fqfileprefix {mustBeTextScalar} = ""
+                opts.referenceDev = []
             end
             med = this.bids_kit_.make_bids_med();
+            if isemptytext(opts.fqfileprefix)
+                pth = med.imagingContext.filepath;
+                fp = mlpipeline.Bids.adjust_fileprefix(med.imagingContext.fileprefix, ...                
+                    new_proc=stackstr(use_dashes=true), new_mode="dev");
+                opts.fqfileprefix = fullfile(pth, fp);
+            end
             
             input_func_dev = mlcapintec.CapracDevice.createFromSession(med);
+            input_func_dev.fqfileprefix = opts.fqfileprefix; 
             if ~isempty(scanner_dev) && opts.alignToScanner
-                input_func_dev = this.scanner_kit_.alignArterialToScanner( ...
-                    input_func_dev, opts.reference_device, 'sameWorldline', opts.sameWorldline);
+                input_func_dev = input_func_dev.alignArterialToReference( ...
+                    arterialDev=input_func_dev, ...
+                    referenceDev=opts.referenceDev, ...
+                    sameWorldline=opts.sameWorldline);
             end
         end
         function this = CapracKit()
